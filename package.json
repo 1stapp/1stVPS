@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "deploy:all": "powershell -ExecutionPolicy Bypass -File ./deploy.ps1",
     "db:init": "wrangler d1 execute 1stvps-db --remote --file=./schema.sql",
     "db:local": "wrangler d1 execute 1stvps-db --local --file=./schema.sql"
   },
