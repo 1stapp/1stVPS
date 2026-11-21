@@ -10,11 +10,11 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "1stvps-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "b226ee19-a2b5-45e5-9a7e-79492c659eef"
 
 [[kv_namespaces]]
 binding = "SESSION_KV"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+id = "7807598cf3104cda8408fcaa211374a0"
 
 [[queues.producers]]
 binding = "PROVISION_QUEUE"
@@ -32,7 +32,7 @@ bindings = [
 
 [[migrations]]
 tag = "v1"
-new_classes = ["SupportChatRoom"]
+new_sqlite_classes = ["SupportChatRoom"]
 
 [vars]
 APP_URL = "https://1stvps.example.com"
@@ -43,3 +43,5 @@ EMAIL_FROM = "noreply@1stvps.example.com"
 # STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
 # OVH_APP_KEY, OVH_APP_SECRET, OVH_CONSUMER_KEY
 # PROXMOX_API_TOKEN, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, RESEND_API_KEY
+
+
