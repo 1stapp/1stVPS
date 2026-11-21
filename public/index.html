@@ -152,56 +152,21 @@
       </button>
     </div>
 
-    <!-- Navigation Items -->
-    <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="navList">
-      <div class="px-3 py-2 text-[11px] font-semibold tracking-wider text-slate-400 dark:text-slate-500 uppercase">基础架构与管理</div>
-      
-      <button data-tab="topology" class="nav-btn active w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-transparent text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkbg-800 transition">
-        <i data-lucide="layers" class="w-4 h-4"></i>
-        <span>系统拓扑与母机资源</span>
-      </button>
+    <!-- Portal Mode Switcher (Client Portal vs Admin Center) -->
+    <div class="px-3 pt-3 pb-1">
+      <div class="p-1 rounded-lg bg-slate-100 dark:bg-darkbg-800 flex items-center text-xs font-medium border border-slate-200 dark:border-slate-700/60">
+        <button id="portalClientBtn" class="flex-1 py-1.5 rounded-md text-center bg-white dark:bg-darkbg-700 text-slate-900 dark:text-white shadow-sm transition">
+          客户门户
+        </button>
+        <button id="portalAdminBtn" class="flex-1 py-1.5 rounded-md text-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition flex items-center justify-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+          <span>Admin 后台</span>
+        </button>
+      </div>
+    </div>
 
-      <button data-tab="deploy" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-transparent text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkbg-800 transition">
-        <i data-lucide="shopping-cart" class="w-4 h-4"></i>
-        <span>选购与全自动开通</span>
-      </button>
-
-      <button data-tab="instances" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-transparent text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkbg-800 transition">
-        <span class="flex items-center gap-3">
-          <i data-lucide="server" class="w-4 h-4"></i>
-          <span>我的 VPS 实例</span>
-        </span>
-        <span id="navInstanceCount" class="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-mono font-semibold">3</span>
-      </button>
-
-      <div class="pt-3 px-3 py-2 text-[11px] font-semibold tracking-wider text-slate-400 dark:text-slate-500 uppercase">商业增长与运营</div>
-
-      <button data-tab="affiliate" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-transparent text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkbg-800 transition">
-        <span class="flex items-center gap-3">
-          <i data-lucide="badge-percent" class="w-4 h-4"></i>
-          <span>推广赚佣中心</span>
-        </span>
-        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-semibold">15% 返佣</span>
-      </button>
-
-      <button data-tab="inbox" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-transparent text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkbg-800 transition">
-        <span class="flex items-center gap-3">
-          <i data-lucide="bell" class="w-4 h-4"></i>
-          <span>站内信与通知</span>
-        </span>
-        <span id="navUnreadBadge" class="text-[11px] px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 font-mono font-semibold">2</span>
-      </button>
-
-      <button data-tab="support" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-transparent text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkbg-800 transition">
-        <i data-lucide="message-square" class="w-4 h-4"></i>
-        <span>在线客服 (DO Socket)</span>
-      </button>
-
-      <button data-tab="marketing" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-transparent text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkbg-800 transition">
-        <i data-lucide="mail" class="w-4 h-4"></i>
-        <span>邮件营销后台 (Resend)</span>
-      </button>
-    </nav>
+    <!-- Navigation Items (Dynamic based on portal mode) -->
+    <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="navList"></nav>
 
     <!-- User / Session Footer -->
     <div class="p-3 border-t border-slate-200 dark:border-slate-800">
@@ -216,7 +181,10 @@
     <!-- Top Action / Context Bar -->
     <div class="px-6 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-darkbg-900/80 backdrop-blur sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 id="pageTitle" class="text-base font-semibold text-slate-900 dark:text-white">系统拓扑与裸金属资源池</h1>
+        <div class="flex items-center gap-2">
+          <h1 id="pageTitle" class="text-base font-semibold text-slate-900 dark:text-white">系统拓扑与裸金属资源池</h1>
+          <span id="roleIndicatorBadge" class="text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">Admin 权限已就绪</span>
+        </div>
         <p id="pageSubtitle" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">OVHcloud 裸金属母机 · Proxmox VE 8.3 KVM 切分 · Cloudflare 边缘调度</p>
       </div>
 
@@ -245,7 +213,7 @@
     <div class="flex-1 p-5 lg:p-7 overflow-y-auto space-y-6">
 
       <!-- ========================================== -->
-      <!-- VIEW 1: SYSTEM VISUALIZATION & TOPOLOGY -->
+      <!-- CLIENT VIEW 1: TOPOLOGY & NODES -->
       <!-- ========================================== -->
       <section id="view-topology" class="space-y-6">
         <!-- Real Key Metric KPIs -->
@@ -298,7 +266,7 @@
       </section>
 
       <!-- ========================================== -->
-      <!-- VIEW 2: DEPLOY & AUTOMATED PROVISIONING -->
+      <!-- CLIENT VIEW 2: DEPLOY & AUTOMATED PROVISIONING -->
       <!-- ========================================== -->
       <section id="view-deploy" class="hidden space-y-6">
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -388,7 +356,7 @@
       </section>
 
       <!-- ========================================== -->
-      <!-- VIEW 3: MY INSTANCES CONSOLE -->
+      <!-- CLIENT VIEW 3: MY INSTANCES CONSOLE -->
       <!-- ========================================== -->
       <section id="view-instances" class="hidden space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -406,7 +374,7 @@
       </section>
 
       <!-- ========================================== -->
-      <!-- VIEW 4: AFFILIATE PARTNER (推广赚佣) -->
+      <!-- CLIENT VIEW 4: AFFILIATE (推广赚佣) -->
       <!-- ========================================== -->
       <section id="view-affiliate" class="hidden space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -491,30 +459,12 @@
                 <div id="simResultYearly" class="text-[11px] text-slate-500 dark:text-slate-400">年化累计预估: <span class="font-mono font-semibold">$1,260.00</span> / 年</div>
               </div>
             </div>
-
-            <div class="ui-surface rounded-xl p-4 space-y-2 text-xs">
-              <div class="font-semibold text-slate-900 dark:text-white">合伙人等级权益</div>
-              <div class="space-y-1.5 text-slate-600 dark:text-slate-400">
-                <div class="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span>青铜会员 (初入驻)</span>
-                  <span class="font-mono font-semibold text-slate-900 dark:text-white">10%</span>
-                </div>
-                <div class="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800 text-blue-600 dark:text-blue-400 font-medium">
-                  <span>白银合伙人 (累计满 10 单)</span>
-                  <span class="font-mono font-semibold">15% (当前)</span>
-                </div>
-                <div class="flex justify-between py-1">
-                  <span>黄金合伙人 (累计满 50 单)</span>
-                  <span class="font-mono font-semibold text-amber-500">20% + 专属经理</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
       <!-- ========================================== -->
-      <!-- VIEW 5: INBOX & SYSTEM NOTIFICATIONS -->
+      <!-- CLIENT VIEW 5: INBOX -->
       <!-- ========================================== -->
       <section id="view-inbox" class="hidden space-y-5">
         <div class="ui-surface rounded-xl p-5 space-y-4">
@@ -534,17 +484,15 @@
               </button>
             </div>
           </div>
-
           <div id="messagesList" class="space-y-2"></div>
         </div>
       </section>
 
       <!-- ========================================== -->
-      <!-- VIEW 6: LIVE SUPPORT (DURABLE OBJECTS) -->
+      <!-- CLIENT VIEW 6: LIVE SUPPORT (DO) -->
       <!-- ========================================== -->
       <section id="view-support" class="hidden">
         <div class="ui-surface rounded-xl overflow-hidden flex flex-col h-[580px]">
-          <!-- Chat Header -->
           <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-darkbg-850">
             <div class="flex items-center gap-2.5">
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
@@ -558,11 +506,7 @@
               <button class="quick-chat-btn px-2.5 py-1 rounded bg-white dark:bg-darkbg-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300 hover:border-blue-500">申请配置反向解析 PTR</button>
             </div>
           </div>
-
-          <!-- Chat Messages Area -->
           <div id="chatMessages" class="flex-1 p-5 overflow-y-auto space-y-3 bg-white dark:bg-darkbg-900"></div>
-
-          <!-- Chat Input -->
           <form id="chatForm" class="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-darkbg-850 flex gap-2">
             <input id="chatInput" type="text" placeholder="输入您的问题，例如：如何查看 Proxmox VE root 初始密码或重装系统？" class="flex-1 px-3.5 py-2 rounded-lg bg-white dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none" />
             <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition">
@@ -573,11 +517,10 @@
       </section>
 
       <!-- ========================================== -->
-      <!-- VIEW 7: EMAIL MARKETING (QUEUES + RESEND) -->
+      <!-- VIEW 7: EMAIL MARKETING (SHARED) -->
       <!-- ========================================== -->
       <section id="view-marketing" class="hidden space-y-5">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <!-- Create Campaign Form -->
           <div class="ui-surface rounded-xl p-5 space-y-4">
             <div class="pb-3 border-b border-slate-200 dark:border-slate-800">
               <h2 class="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
@@ -586,18 +529,15 @@
               </h2>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">任务写入 Queue 队列后，由 Worker 异步消费并调用 Resend 官方 API 批量投递</p>
             </div>
-
             <div class="space-y-3 text-xs">
               <div>
                 <label class="block font-medium text-slate-600 dark:text-slate-400 mb-1">活动名称 (内部标记)</label>
                 <input id="campTitle" type="text" value="黑色星期五 OVH 新加坡节点上新特惠" class="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500" />
               </div>
-
               <div>
                 <label class="block font-medium text-slate-600 dark:text-slate-400 mb-1">邮件主题 (Subject Line)</label>
                 <input id="campSubject" type="text" value="[1stVPS] 亚太新加坡 SGP 裸金属 KVM 实例正式交付，限时首月 8 折！" class="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500" />
               </div>
-
               <div>
                 <label class="block font-medium text-slate-600 dark:text-slate-400 mb-1">目标用户分群 (D1 User Segments)</label>
                 <select id="campSegment" class="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500">
@@ -606,19 +546,15 @@
                   <option value="affiliates">推广合伙人社群 (196 人)</option>
                 </select>
               </div>
-
               <div>
                 <label class="block font-medium text-slate-600 dark:text-slate-400 mb-1">邮件正文 HTML (支持变量 {{name}}, {{vps_ip}}, {{aff_link}})</label>
                 <textarea id="campBody" rows="5" class="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500"><h2>尊敬的 {{name}}：</h2><p>1stVPS 新加坡 SGP 裸金属机房（AMD EPYC 9354 + 2x 3.84TB NVMe RAID10）现已全面切分就绪！</p><p>Stripe 支付后 15 秒全自动克隆交付，独立 IPv4 与反向解析 PTR 均支持自助管理。</p><p><a href="https://1stvps.io/?ref={{aff_link}}" style="background:#2563eb;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;">立即体验全新亚太节点 &rarr;</a></p></textarea>
               </div>
-
               <button id="sendCampaignBtn" class="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition">
                 推送至 Cloudflare Queue 立即群发
               </button>
             </div>
           </div>
-
-          <!-- Email Preview & History -->
           <div class="space-y-4">
             <div class="ui-surface rounded-xl p-5 space-y-3">
               <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
@@ -627,12 +563,200 @@
               </div>
               <div id="emailPreviewBox" class="p-4 rounded-lg bg-white text-slate-900 text-xs space-y-2 border border-slate-200 shadow-inner min-h-[180px]"></div>
             </div>
-
             <div class="ui-surface rounded-xl p-5 space-y-3">
               <span class="text-xs font-semibold text-slate-900 dark:text-white">历史营销群发记录</span>
               <div class="space-y-2" id="campaignsHistory"></div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ADMIN VIEW 1: ADMIN OVERVIEW & DASHBOARD -->
+      <!-- ========================================== -->
+      <section id="view-admin-overview" class="hidden space-y-6">
+        <!-- Admin KPI Stats -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="adminKpiGrid">
+          <div class="ui-surface rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-medium text-slate-500">全站注册客户</div>
+              <div class="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">1,284 人</div>
+              <div class="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">+38 人 (本周新增)</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950 text-blue-600">
+              <i data-lucide="users" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="ui-surface rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-medium text-slate-500">全站运行中 VPS</div>
+              <div class="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">412 台</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">跨 4 个 OVH 数据中心</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-600">
+              <i data-lucide="server" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="ui-surface rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-medium text-slate-500">本月 Stripe 总流水</div>
+              <div class="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">$14,890.00</div>
+              <div class="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">MRR 净收入超 60%</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600">
+              <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+            </div>
+          </div>
+          <div class="ui-surface rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-medium text-slate-500">待审核返佣提现</div>
+              <div class="text-xl font-bold font-mono text-amber-500 mt-1">$428.00</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">3 笔待审核打款</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950 text-amber-600">
+              <i data-lucide="clock" class="w-5 h-5"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Admin Action Bar -->
+        <div class="ui-surface rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span class="text-xs font-semibold text-slate-900 dark:text-white">平台管理员快捷运维指令</span>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <button class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition" onclick="switchTab('admin-nodes')">
+              录入并纳管新母机
+            </button>
+            <button class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-darkbg-800 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-200 dark:hover:bg-darkbg-700 transition" onclick="switchTab('admin-commissions')">
+              处理合伙人提现 (3)
+            </button>
+            <button class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-darkbg-800 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-200 dark:hover:bg-darkbg-700 transition" onclick="switchTab('marketing')">
+              发布全员停机广播
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ADMIN VIEW 2: NODES & IP NOC POOL -->
+      <!-- ========================================== -->
+      <section id="view-admin-nodes" class="hidden space-y-6">
+        <div class="ui-surface rounded-xl p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900 dark:text-white">OVH 裸金属母机装机与 vRack IP 资产库</h2>
+              <p class="text-xs text-slate-500 mt-0.5">管理员可直接调用 OVH API 一键重装 Proxmox VE 8，或导入新的 /28、/26 独立 IP 地址池</p>
+            </div>
+            <button class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700" onclick="showImportIpModal()">
+              批量导入 IPv4 子网段
+            </button>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 dark:bg-darkbg-850 text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3">母机标识</th>
+                  <th class="py-2.5 px-3">机房位置</th>
+                  <th class="py-2.5 px-3">物理规格</th>
+                  <th class="py-2.5 px-3">切分负荷 (vCPU/RAM)</th>
+                  <th class="py-2.5 px-3">IP 子网池</th>
+                  <th class="py-2.5 px-3 text-right">运维操作</th>
+                </tr>
+              </thead>
+              <tbody id="adminNodesTable" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ADMIN VIEW 3: ALL VPS INSTANCES CONTROL -->
+      <!-- ========================================== -->
+      <section id="view-admin-instances" class="hidden space-y-5">
+        <div class="ui-surface rounded-xl p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900 dark:text-white">全站客户 VPS 实例实时总控</h2>
+              <p class="text-xs text-slate-500 mt-0.5">跨全量客户实时监管，支持强制电源动作、重置 Root 密码或处置违规滥用</p>
+            </div>
+            <input type="text" id="searchAllVpsInput" placeholder="按客户邮箱、主机名或 IP 搜索..." class="px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none w-64" />
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 dark:bg-darkbg-850 text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3">VMID / 实例名</th>
+                  <th class="py-2.5 px-3">所属客户邮箱</th>
+                  <th class="py-2.5 px-3">母机 / 机房</th>
+                  <th class="py-2.5 px-3">公网 IPv4</th>
+                  <th class="py-2.5 px-3">套餐配置</th>
+                  <th class="py-2.5 px-3">状态</th>
+                  <th class="py-2.5 px-3 text-right">管理员权限操作</th>
+                </tr>
+              </thead>
+              <tbody id="adminAllVpsTable" class="divide-y divide-slate-100 dark:divide-slate-800 font-mono"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ADMIN VIEW 4: COMMISSIONS AUDIT (返佣审核) -->
+      <!-- ========================================== -->
+      <section id="view-admin-commissions" class="hidden space-y-5">
+        <div class="ui-surface rounded-xl p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900 dark:text-white">合伙人推广佣金提现审核中心</h2>
+              <p class="text-xs text-slate-500 mt-0.5">客户发起的 USDT TRC20 / PayPal 提现，审核通过后可一键核销并标记已打款</p>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 dark:bg-darkbg-850 text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3">提现申请号</th>
+                  <th class="py-2.5 px-3">合伙人账号</th>
+                  <th class="py-2.5 px-3">提现方式与地址</th>
+                  <th class="py-2.5 px-3">提现金额</th>
+                  <th class="py-2.5 px-3">申请时间</th>
+                  <th class="py-2.5 px-3">状态</th>
+                  <th class="py-2.5 px-3 text-right">审核操作</th>
+                </tr>
+              </thead>
+              <tbody id="adminPayoutsTable" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ADMIN VIEW 5: SUPPORT DESK (坐席端) -->
+      <!-- ========================================== -->
+      <section id="view-admin-desk" class="hidden space-y-5">
+        <div class="ui-surface rounded-xl overflow-hidden flex flex-col h-[580px]">
+          <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-darkbg-850">
+            <div class="flex items-center gap-2.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <div>
+                <div class="text-xs font-semibold text-slate-900 dark:text-white">管理员客服坐席工作台 (Support Agent Desk)</div>
+                <div class="text-[11px] text-slate-500 font-mono">Durable Objects WebSocket 实时广播坐席端</div>
+              </div>
+            </div>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 font-mono">当前接待客户: Alex Chen (usr_alex)</span>
+          </div>
+          <div id="adminDeskMessages" class="flex-1 p-5 overflow-y-auto space-y-3 bg-white dark:bg-darkbg-900"></div>
+          <form id="adminDeskForm" class="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-darkbg-850 flex gap-2">
+            <input id="adminDeskInput" type="text" placeholder="作为官方客服回复客户，例如：已为您更换新加坡节点干净 IP..." class="flex-1 px-3.5 py-2 rounded-lg bg-white dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none" />
+            <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition">
+              坐席回复
+            </button>
+          </form>
         </div>
       </section>
 
@@ -677,13 +801,14 @@
     // --- 状态存储与全局数据模型 ---
     const STATE = {
       theme: 'dark',
+      portalMode: 'client', // 'client' | 'admin'
       activeTab: 'topology',
       user: {
         loggedIn: true,
         id: 'usr_demo',
         name: 'Alex Chen',
-        email: 'alex@1stvps.io',
-        role: 'admin',
+        email: 'admin@1stvps.io',
+        role: 'admin', // 'admin' | 'customer'
         affiliateCode: '1STVIP88',
         balanceCents: 14850,
       },
@@ -755,25 +880,36 @@
           id: 'vm_101', vmid: 101, hostname: 'hk-proxy-edge', nodeId: 'node_sgp_03',
           dc: 'SGP', plan: 'KVM Pro', vcpu: 4, ram: 8, nvme: 80,
           ip: '51.79.144.18', os: 'Debian 12', status: 'running', cpuLoad: 24,
-          expiresAt: '2026-12-22',
+          userEmail: 'alex@1stvps.io', userName: 'Alex Chen', expiresAt: '2026-12-22',
         },
         {
           id: 'vm_102', vmid: 102, hostname: 'eu-api-worker', nodeId: 'node_rbx_01',
           dc: 'RBX', plan: 'KVM Compute', vcpu: 8, ram: 16, nvme: 160,
           ip: '51.89.10.44', os: 'Ubuntu 24.04 LTS', status: 'running', cpuLoad: 41,
-          expiresAt: '2026-12-18',
+          userEmail: 'developer@enterprise.de', userName: 'Klaus M.', expiresAt: '2026-12-18',
         },
         {
           id: 'vm_103', vmid: 103, hostname: 'backup-db-01', nodeId: 'node_gra_02',
           dc: 'GRA', plan: 'KVM Starter', vcpu: 2, ram: 4, nvme: 40,
           ip: '141.94.22.91', os: 'Rocky Linux 9', status: 'stopped', cpuLoad: 0,
-          expiresAt: '2026-12-05',
+          userEmail: 'ops@fintech.fr', userName: 'Pierre L.', expiresAt: '2026-12-05',
+        },
+        {
+          id: 'vm_104', vmid: 104, hostname: 'sgp-k8s-node', nodeId: 'node_sgp_03',
+          dc: 'SGP', plan: 'KVM Extreme', vcpu: 16, ram: 32, nvme: 320,
+          ip: '51.79.144.22', os: 'Ubuntu 24.04 LTS', status: 'running', cpuLoad: 58,
+          userEmail: 'cloud@sgp-tech.com', userName: 'David Wong', expiresAt: '2027-01-10',
         },
       ],
       commissions: [
         { orderId: 'ORD-8821', user: 'm***@gmail.com', planPrice: 28, commission: 4.20, date: '2026-11-20', status: '已入账' },
         { orderId: 'ORD-8834', user: 'k***@outlook.com', planPrice: 56, commission: 8.40, date: '2026-11-19', status: '已入账' },
         { orderId: 'ORD-8849', user: 's***@proton.me', planPrice: 14, commission: 2.10, date: '2026-11-18', status: '已入账' },
+      ],
+      adminPayouts: [
+        { id: 'PAY-1001', user: 'alex.partner@gmail.com', method: 'USDT (TRC20)', address: 'TQj8zP...9bV', amount: 150.00, date: '2026-11-21 21:30', status: 'pending' },
+        { id: 'PAY-1002', user: 'crypto_host@proton.me', method: 'PayPal', address: 'crypto_host@proton.me', amount: 84.50, date: '2026-11-21 18:20', status: 'pending' },
+        { id: 'PAY-1003', user: 'dev_team@corp.sg', method: 'USDT (TRC20)', address: 'TX9mK...2k1', amount: 193.50, date: '2026-11-20 14:15', status: 'pending' },
       ],
       messages: [
         {
@@ -796,7 +932,8 @@
         },
       ],
       chatHistory: [
-        { sender: 'agent', text: '您好！这里是 1stVPS 工程师在线客服（Cloudflare Durable Objects WebSocket 已连接），请问有什么可以帮您？', time: '12:40' },
+        { sender: 'user', text: '您好，我刚开通的新加坡节点 IP 延迟很低，但想请问一下可以配置反向解析 PTR 吗？', time: '12:38' },
+        { sender: 'agent', text: '您好！这里是 1stVPS 工程师在线客服。当然可以，您可以在控制台直接填写 PTR 域名，系统会通过 Cloudflare Worker 同步至 OVHcloud API 自动生效。', time: '12:40' },
       ],
       campaigns: [
         { title: '11 月黑五亚太节点扩容特惠', segment: '活跃 VPS 持有者', sent: 412, status: '已送达' },
@@ -862,7 +999,31 @@
       }
     }
 
-    // --- Tab 导航切换 ---
+    // --- 门户模式与导航条渲染 ---
+    const NAV_CONFIG = {
+      client: [
+        { section: '基础架构与管理' },
+        { tab: 'topology', label: '系统拓扑与母机资源', icon: 'layers' },
+        { tab: 'deploy', label: '选购与全自动开通', icon: 'shopping-cart' },
+        { tab: 'instances', label: '我的 VPS 实例', icon: 'server', badge: 'navInstanceCount' },
+        { section: '商业增长与运营' },
+        { tab: 'affiliate', label: '推广赚佣中心', icon: 'badge-percent', pill: '15% 返佣' },
+        { tab: 'inbox', label: '站内信与通知', icon: 'bell', badge: 'navUnreadBadge' },
+        { tab: 'support', label: '在线客服 (DO Socket)', icon: 'message-square' },
+        { tab: 'marketing', label: '邮件营销后台 (Resend)', icon: 'mail' },
+      ],
+      admin: [
+        { section: '平台经营总控 (Admin)' },
+        { tab: 'admin-overview', label: '经营大盘与指标', icon: 'bar-chart-3' },
+        { tab: 'admin-nodes', label: '裸金属与 IP 资产库', icon: 'server' },
+        { tab: 'admin-instances', label: '全量客户 VPS 总控', icon: 'cpu', pill: '412 台' },
+        { section: '财务审核与客服坐席' },
+        { tab: 'admin-commissions', label: '合伙人提现审核', icon: 'check-circle-2', pill: '3 待审' },
+        { tab: 'admin-desk', label: '客服坐席接待工作台', icon: 'headphones' },
+        { tab: 'marketing', label: '全员广播与营销投放', icon: 'send' },
+      ],
+    };
+
     const TAB_META = {
       topology: ['系统拓扑与裸金属资源池', 'OVHcloud 裸金属母机 · Proxmox VE 8.3 KVM 切分 · Cloudflare 边缘调度'],
       deploy: ['选购与全自动开通', 'Stripe 支付后自动触发 Cloudflare Queue：分配 IP → 克隆 Proxmox VM → Cloud-Init 启动'],
@@ -870,25 +1031,83 @@
       affiliate: ['推广合伙人赚佣中心', '分享专属推广链接，每笔新订单与续费均自动结算 15% 佣金至 D1 余额'],
       inbox: ['站内信与系统通知', '开通交付明细、Stripe 扣费发票凭据与推广返佣实时通知'],
       support: ['在线客服 (Durable Objects)', '基于 Cloudflare Durable Objects 的低延迟 WebSocket 双向实时沟通'],
-      marketing: ['邮件营销后台 (Queues + Resend)', '异步队列调用 Resend API 针对 D1 用户分群进行高送达率触达'],
+      marketing: ['全员广播与邮件营销 (Queues + Resend)', '异步队列调用 Resend API 针对 D1 用户分群进行高送达率触达'],
+      'admin-overview': ['平台运营与经营大盘 (Admin)', '全站 MRR 月流水、节点负载健康度与整体商业运营指标'],
+      'admin-nodes': ['裸金属母机装机与 vRack IP 资产库 (Admin)', '调用 OVH API 远程一键重装 Proxmox VE 8，批量导入管理独立 IPv4 子网'],
+      'admin-instances': ['全量客户 VPS 实例实时总控 (Admin)', '跨所有注册客户穿透监管，支持强制电源动作、重置 Root 密码与处置滥用'],
+      'admin-commissions': ['合伙人推广佣金提现审核 (Admin)', '审核客户申请的 USDT / PayPal 佣金提现并完成结算核销'],
+      'admin-desk': ['管理员在线客服坐席端 (Admin)', '作为技术支持坐席，实时接待并回复前端客户发送的工单咨询'],
     };
+
+    function renderNav() {
+      const nav = document.getElementById('navList');
+      const items = NAV_CONFIG[STATE.portalMode];
+      nav.innerHTML = items.map(item => {
+        if (item.section) {
+          return `<div class="px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wider text-slate-400 dark:text-slate-500 uppercase">${item.section}</div>`;
+        }
+        const isActive = item.tab === STATE.activeTab;
+        const pillHtml = item.pill ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-semibold">${item.pill}</span>` : '';
+        const badgeHtml = item.badge ? `<span id="${item.badge}" class="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-mono font-semibold">0</span>` : '';
+
+        return `
+          <button data-tab="${item.tab}" class="nav-btn ${isActive ? 'active' : ''} w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border border-transparent text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkbg-800 transition">
+            <span class="flex items-center gap-3">
+              <i data-lucide="${item.icon}" class="w-4 h-4"></i>
+              <span>${item.label}</span>
+            </span>
+            ${pillHtml || badgeHtml}
+          </button>
+        `;
+      }).join('');
+
+      document.querySelectorAll('#navList .nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+      lucide.createIcons();
+    }
+
+    function switchPortalMode(mode) {
+      STATE.portalMode = mode;
+      const clientBtn = document.getElementById('portalClientBtn');
+      const adminBtn = document.getElementById('portalAdminBtn');
+
+      if (mode === 'admin') {
+        adminBtn.className = 'flex-1 py-1.5 rounded-md text-center bg-blue-600 text-white shadow-sm transition flex items-center justify-center gap-1.5';
+        clientBtn.className = 'flex-1 py-1.5 rounded-md text-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+        document.getElementById('roleIndicatorBadge').textContent = '管理员后台生效中';
+        STATE.activeTab = 'admin-overview';
+      } else {
+        clientBtn.className = 'flex-1 py-1.5 rounded-md text-center bg-white dark:bg-darkbg-700 text-slate-900 dark:text-white shadow-sm transition';
+        adminBtn.className = 'flex-1 py-1.5 rounded-md text-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition flex items-center justify-center gap-1.5';
+        document.getElementById('roleIndicatorBadge').textContent = '客户门户模式';
+        STATE.activeTab = 'topology';
+      }
+
+      renderNav();
+      switchTab(STATE.activeTab);
+    }
+
+    document.getElementById('portalClientBtn').addEventListener('click', () => switchPortalMode('client'));
+    document.getElementById('portalAdminBtn').addEventListener('click', () => switchPortalMode('admin'));
 
     function switchTab(tab) {
       STATE.activeTab = tab;
-      document.querySelectorAll('section[id^="view-"]').forEach((s) => s.classList.add('hidden'));
-      document.getElementById(`view-${tab}`).classList.remove('hidden');
-      document.querySelectorAll('#navList .nav-btn').forEach((btn) => {
+      document.querySelectorAll('section[id^="view-"]').forEach(s => s.classList.add('hidden'));
+      const targetView = document.getElementById(`view-${tab}`);
+      if (targetView) targetView.classList.remove('hidden');
+
+      document.querySelectorAll('#navList .nav-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.tab === tab);
       });
-      document.getElementById('pageTitle').textContent = TAB_META[tab][0];
-      document.getElementById('pageSubtitle').textContent = TAB_META[tab][1];
+
+      if (TAB_META[tab]) {
+        document.getElementById('pageTitle').textContent = TAB_META[tab][0];
+        document.getElementById('pageSubtitle').textContent = TAB_META[tab][1];
+      }
       document.getElementById('sidebar').classList.add('-translate-x-full');
       renderCurrentView();
     }
-
-    document.querySelectorAll('#navList .nav-btn').forEach((btn) => {
-      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-    });
 
     // 移动端侧边栏切换
     document.getElementById('mobileMenuBtn').addEventListener('click', () => {
@@ -906,7 +1125,10 @@
           <div class="flex items-center gap-2.5 min-w-0">
             <div class="w-7 h-7 rounded bg-blue-600 text-white flex items-center justify-center text-xs font-semibold font-mono shrink-0">AC</div>
             <div class="min-w-0">
-              <div class="text-xs font-semibold text-slate-900 dark:text-white truncate">${STATE.user.name}</div>
+              <div class="text-xs font-semibold text-slate-900 dark:text-white truncate flex items-center gap-1">
+                <span>${STATE.user.name}</span>
+                <span class="text-[9px] px-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-mono">ADMIN</span>
+              </div>
               <div class="text-[10px] text-slate-500 dark:text-slate-400 truncate">${STATE.user.email}</div>
             </div>
           </div>
@@ -951,7 +1173,6 @@
         </div>
       `).join('');
 
-      // 渲染裸金属卡片
       document.getElementById('bareMetalNodesGrid').innerHTML = STATE.nodes.map(n => {
         const isSelected = n.id === STATE.selectedNodeId;
         const cpuPct = Math.round((n.usedVcpu / n.totalVcpu) * 100);
@@ -997,12 +1218,9 @@
       renderTopology();
     }
 
-    // 渲染选中的母机切分细节与真实 IP 地址池分布
     function renderSelectedNodeDetail() {
       const node = STATE.nodes.find(n => n.id === STATE.selectedNodeId) || STATE.nodes[0];
       const panel = document.getElementById('nodeDetailPanel');
-
-      // 模拟当前母机切分出来的实例
       const nodeVms = STATE.instances.filter(i => i.nodeId === node.id);
 
       panel.innerHTML = `
@@ -1017,7 +1235,6 @@
           </div>
         </div>
 
-        <!-- 真实数据中心子网网格 (IP Allocation Map) -->
         <div class="mt-3">
           <div class="text-[11px] text-slate-500 dark:text-slate-400 mb-1.5 font-medium">OVH vRack 公网 IPv4 地址池网格 (点击查看绑定详情)</div>
           <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
@@ -1059,7 +1276,7 @@
       }
     }
 
-    // --- 图表渲染 (适配浅色/深色主题) ---
+    // --- 图表渲染 ---
     let revenueChartInstance = null;
     let clusterChartInstance = null;
 
@@ -1068,7 +1285,6 @@
       const textColor = isDark ? '#94A3B8' : '#64748B';
       const gridColor = isDark ? 'rgba(51, 65, 85, 0.3)' : 'rgba(226, 232, 240, 0.8)';
 
-      // 营收图
       const revCtx = document.getElementById('revenueChart');
       if (revCtx) {
         if (revenueChartInstance) revenueChartInstance.destroy();
@@ -1105,7 +1321,6 @@
         });
       }
 
-      // 集群资源分配图
       const clusterCtx = document.getElementById('clusterChart');
       if (clusterCtx) {
         if (clusterChartInstance) clusterChartInstance.destroy();
@@ -1134,7 +1349,6 @@
 
     // --- 选购与自动开通 (VIEW 2) ---
     function renderDeployView() {
-      // 1. 数据中心选择
       document.getElementById('dcSelector').innerHTML = STATE.dcs.map(d => {
         const selected = d.code === STATE.deployForm.dc;
         return `
@@ -1146,7 +1360,6 @@
         `;
       }).join('');
 
-      // 2. 套餐规格选择
       const discount = STATE.billingCycle === 3 ? 0.9 : STATE.billingCycle === 12 ? 0.8 : 1.0;
       document.getElementById('planSelector').innerHTML = STATE.plans.map(p => {
         const selected = p.id === STATE.deployForm.planId;
@@ -1168,7 +1381,6 @@
         `;
       }).join('');
 
-      // 3. 操作系统选择
       document.getElementById('osSelector').innerHTML = STATE.oses.map(o => {
         const selected = o === STATE.deployForm.os;
         return `
@@ -1185,7 +1397,6 @@
     function setDeployPlan(planId) { STATE.deployForm.planId = planId; renderDeployView(); }
     function setDeployOs(os) { STATE.deployForm.os = os; renderDeployView(); }
 
-    // 计费周期切换
     document.querySelectorAll('#billingCycleToggle button').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#billingCycleToggle button').forEach(b => {
@@ -1226,7 +1437,6 @@
       `;
     }
 
-    // 执行模拟全自动开通流水线 (5 步真实执行)
     function executeProvisionPipeline() {
       const box = document.getElementById('provisionPipelineBox');
       const bar = document.getElementById('pipelineProgressBar');
@@ -1262,7 +1472,6 @@
           clearInterval(timer);
           showToast(`VPS ${host} 全自动交付完成！`, 'success');
 
-          // 将新实例加入列表
           STATE.instances.unshift({
             id: `vm_${Date.now().toString().slice(-4)}`,
             vmid: Math.floor(104 + Math.random() * 50),
@@ -1277,10 +1486,11 @@
             os: STATE.deployForm.os,
             status: 'running',
             cpuLoad: 12,
+            userEmail: 'alex@1stvps.io',
+            userName: 'Alex Chen',
             expiresAt: '2026-12-22',
           });
 
-          // 增加站内信通知
           STATE.messages.unshift({
             id: `m_${Date.now()}`,
             category: 'system',
@@ -1309,7 +1519,8 @@
     // --- 实例控制台 (VIEW 3) ---
     function renderInstancesView() {
       document.getElementById('instancesTotalText').textContent = `共 ${STATE.instances.length} 台`;
-      document.getElementById('navInstanceCount').textContent = STATE.instances.length;
+      const badge = document.getElementById('navInstanceCount');
+      if (badge) badge.textContent = STATE.instances.length;
 
       document.getElementById('instancesGrid').innerHTML = STATE.instances.map(inst => {
         const isRunning = inst.status === 'running';
@@ -1327,7 +1538,6 @@
               ${statusBadge}
             </div>
 
-            <!-- IP 与系统参数 -->
             <div class="p-2.5 rounded-lg bg-slate-50 dark:bg-darkbg-950 border border-slate-200 dark:border-slate-800 space-y-1 text-[11px] font-mono">
               <div class="flex justify-between items-center">
                 <span class="text-slate-500">公网 IPv4:</span>
@@ -1347,7 +1557,6 @@
               </div>
             </div>
 
-            <!-- 操作按钮组 -->
             <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
               <button class="py-1.5 px-2 rounded-lg bg-slate-100 dark:bg-darkbg-800 hover:bg-slate-200 dark:hover:bg-darkbg-700 text-slate-700 dark:text-slate-200 font-medium flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-700 transition" onclick="openVncConsole('${inst.hostname}', '${inst.ip}')">
                 <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
@@ -1375,7 +1584,7 @@
       }
     }
 
-    // --- Web VNC / Terminal 模拟器 ---
+    // --- Web VNC 模拟 ---
     function openVncConsole(host, ip) {
       document.getElementById('vncTitleText').textContent = `root@${host} (${ip}) — Web VNC / Serial Console`;
       document.getElementById('vncModal').classList.remove('hidden');
@@ -1441,7 +1650,6 @@
       copyToClipboard(document.getElementById('affLinkInput').value, '专属推广链接');
     });
 
-    // 收益测算器联动
     function updateSimulator() {
       const users = parseInt(document.getElementById('simUsersRange').value, 10);
       const arpu = parseInt(document.getElementById('simArpuRange').value, 10);
@@ -1459,7 +1667,7 @@
       showToast('已成功将 $42.00 佣金转为账户余额，并获得 10% 奖励金 $4.20！', 'success');
     });
     document.getElementById('requestPayoutBtn').addEventListener('click', () => {
-      showToast('提现申请已提交！将于 24 小时内结算至您的收款账户。', 'info');
+      showToast('提现申请已提交！已自动流入管理员审核池。', 'info');
     });
 
     // --- 站内信 (VIEW 5) ---
@@ -1470,7 +1678,8 @@
         : STATE.messages.filter(m => m.category === STATE.inboxFilter);
 
       const unreadCount = STATE.messages.filter(m => !m.read).length;
-      document.getElementById('navUnreadBadge').textContent = unreadCount;
+      const badge = document.getElementById('navUnreadBadge');
+      if (badge) badge.textContent = unreadCount;
 
       list.innerHTML = filtered.map(m => `
         <div class="p-3.5 rounded-lg border transition ${m.read ? 'border-slate-200 dark:border-slate-800 bg-white dark:bg-darkbg-900 opacity-80' : 'border-blue-300 dark:border-blue-800 bg-blue-50/30 dark:bg-darkbg-850'}">
@@ -1503,7 +1712,6 @@
       showToast('所有站内信已标为已读', 'success');
     });
 
-    // --- Web Push 触发与权限 ---
     document.getElementById('quickPushBtn').addEventListener('click', togglePushNotifications);
     document.getElementById('testPushBtn').addEventListener('click', () => {
       showToast('【Web Push】您的 KVM 实例 hk-proxy-edge (51.79.144.18) CPU 使用率已恢复至 14%', 'info');
@@ -1548,8 +1756,8 @@
 
       STATE.chatHistory.push({ sender: 'user', text: val, time: new Date().toTimeString().slice(0, 5) });
       renderChatView();
+      renderAdminDeskView();
 
-      // 模拟 Durable Object 工程师回复
       setTimeout(() => {
         let reply = '收到您的问题！我们已为您核验 OVH 裸金属母机与 vRack 路由状态。如需重置密码或更换 IPv4，请在控制台发起或直接回复。';
         if (val.includes('IP') || val.includes('ping')) {
@@ -1557,6 +1765,7 @@
         }
         STATE.chatHistory.push({ sender: 'agent', text: reply, time: new Date().toTimeString().slice(0, 5) });
         renderChatView();
+        renderAdminDeskView();
       }, 900);
     });
 
@@ -1608,6 +1817,175 @@
       showToast('营销活动已推入 Cloudflare Queue 异步群发队列！', 'success');
     });
 
+    // --- ADMIN VIEW: 母机与 IP 资产库 (ADMIN-NODES) ---
+    function renderAdminNodesView() {
+      const tbody = document.getElementById('adminNodesTable');
+      tbody.innerHTML = STATE.nodes.map(n => `
+        <tr class="hover:bg-slate-50 dark:hover:bg-darkbg-850">
+          <td class="py-3 px-3">
+            <div class="font-mono font-semibold text-slate-900 dark:text-white">${n.name}</div>
+            <div class="text-[10px] text-slate-400 font-mono">${n.ovhId}</div>
+          </td>
+          <td class="py-3 px-3 font-mono">${n.dc}</td>
+          <td class="py-3 px-3 font-mono text-slate-600 dark:text-slate-300">${n.cpuModel}</td>
+          <td class="py-3 px-3 font-mono">
+            <div>vCPU: <span class="text-blue-600">${n.usedVcpu}/${n.totalVcpu}</span></div>
+            <div>RAM: <span class="text-emerald-600">${n.usedRam}/${n.totalRam} GB</span></div>
+          </td>
+          <td class="py-3 px-3 font-mono">
+            <div class="font-semibold text-blue-600">${n.subnet}</div>
+            <div class="text-[10px] text-slate-400">可用: ${n.freeIps} / ${n.totalIps} IPs</div>
+          </td>
+          <td class="py-3 px-3 text-right space-x-1">
+            <button class="px-2 py-1 rounded bg-slate-100 dark:bg-darkbg-800 hover:bg-slate-200 dark:hover:bg-darkbg-700 text-[11px]" onclick="triggerProxmoxReinstall('${n.ovhId}')">
+              重装 Proxmox
+            </button>
+            <button class="px-2 py-1 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 text-[11px]" onclick="selectNode('${n.id}'); switchTab('topology')">
+              查看切分
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function triggerProxmoxReinstall(ovhId) {
+      showToast(`已向 OVHcloud API 下发母机 ${ovhId} 的 Proxmox VE 8.3 自动化重装指令！`, 'info');
+    }
+
+    function showImportIpModal() {
+      const modal = document.getElementById('modalBox');
+      modal.innerHTML = `
+        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">批量导入 OVH vRack IP 段</h3>
+        <p class="text-xs text-slate-500">将已在 OVH 控制台购买的 Failover 或 vRack IP 块录入地址池</p>
+        <div class="space-y-3 pt-2 text-xs">
+          <div>
+            <label class="block text-slate-500 mb-1">分配至母机节点</label>
+            <select class="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700">
+              ${STATE.nodes.map(n => `<option value="${n.id}">${n.name} (${n.dc})</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">子网 CIDR (例如 51.79.144.32/28)</label>
+            <input type="text" value="51.79.144.32/28" class="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700 font-mono" />
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">子网网关 Gateway</label>
+            <input type="text" value="51.79.144.46" class="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-darkbg-950 border border-slate-200 dark:border-slate-700 font-mono" />
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button class="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800" onclick="closeModal()">取消</button>
+            <button class="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium" onclick="confirmImportIps()">立即录入</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('modalBackdrop').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('modalBackdrop').classList.add('hidden');
+    }
+
+    function confirmImportIps() {
+      closeModal();
+      showToast('16 个独立公网 IPv4 已成功录入 D1 地址池，可立即参与全自动调度！', 'success');
+    }
+
+    // --- ADMIN VIEW: 全站客户 VPS 总控 (ADMIN-INSTANCES) ---
+    function renderAdminInstancesView() {
+      const tbody = document.getElementById('adminAllVpsTable');
+      tbody.innerHTML = STATE.instances.map(inst => `
+        <tr class="hover:bg-slate-50 dark:hover:bg-darkbg-850">
+          <td class="py-3 px-3">
+            <div class="font-bold text-slate-900 dark:text-white">${inst.hostname}</div>
+            <div class="text-[10px] text-slate-400">VMID: ${inst.vmid}</div>
+          </td>
+          <td class="py-3 px-3 font-mono">
+            <div class="text-slate-800 dark:text-slate-200">${inst.userEmail}</div>
+            <div class="text-[10px] text-slate-400">${inst.userName}</div>
+          </td>
+          <td class="py-3 px-3 font-mono">${inst.nodeId} (${inst.dc})</td>
+          <td class="py-3 px-3 font-mono font-semibold text-blue-600">${inst.ip}</td>
+          <td class="py-3 px-3 font-mono text-slate-600 dark:text-slate-300">${inst.vcpu}C/${inst.ram}G/${inst.nvme}G</td>
+          <td class="py-3 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] ${inst.status === 'running' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600' : 'bg-slate-100 dark:bg-darkbg-800 text-slate-500'}">${inst.status}</span>
+          </td>
+          <td class="py-3 px-3 text-right space-x-1">
+            <button class="px-2 py-1 rounded bg-slate-100 dark:bg-darkbg-800 hover:bg-slate-200 text-[11px]" onclick="openVncConsole('${inst.hostname}', '${inst.ip}')">终端</button>
+            <button class="px-2 py-1 rounded bg-rose-50 dark:bg-rose-950 text-rose-600 text-[11px]" onclick="adminForceReboot('${inst.hostname}')">强制重启</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function adminForceReboot(hostname) {
+      showToast(`已向 Proxmox 集群下发实例 [${hostname}] 强制硬重启指令`, 'info');
+    }
+
+    // --- ADMIN VIEW: 返佣审核 (ADMIN-COMMISSIONS) ---
+    function renderAdminCommissionsView() {
+      const tbody = document.getElementById('adminPayoutsTable');
+      tbody.innerHTML = STATE.adminPayouts.map(p => `
+        <tr class="hover:bg-slate-50 dark:hover:bg-darkbg-850">
+          <td class="py-3 px-3 font-mono text-slate-500">${p.id}</td>
+          <td class="py-3 px-3 font-mono font-medium">${p.user}</td>
+          <td class="py-3 px-3 font-mono">
+            <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-darkbg-800 text-slate-700 dark:text-slate-300 text-[10px]">${p.method}</span>
+            <span class="text-slate-500 ml-1">${p.address}</span>
+          </td>
+          <td class="py-3 px-3 font-mono font-bold text-emerald-600">$${p.amount.toFixed(2)}</td>
+          <td class="py-3 px-3 font-mono text-slate-500">${p.date}</td>
+          <td class="py-3 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] ${p.status === 'pending' ? 'bg-amber-50 dark:bg-amber-950 text-amber-600' : 'bg-emerald-50 text-emerald-600'}">
+              ${p.status === 'pending' ? '待审核' : '已打款'}
+            </span>
+          </td>
+          <td class="py-3 px-3 text-right">
+            ${p.status === 'pending'
+              ? `<button class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium" onclick="approvePayout('${p.id}')">批准打款</button>`
+              : '<span class="text-slate-400 text-[11px]">已完成</span>'}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function approvePayout(id) {
+      const item = STATE.adminPayouts.find(p => p.id === id);
+      if (item) {
+        item.status = 'paid';
+        renderAdminCommissionsView();
+        showToast(`提现单 ${id} 审核通过！款项已标记出账并向用户发送通知`, 'success');
+      }
+    }
+
+    // --- ADMIN VIEW: 客服坐席端 (ADMIN-DESK) ---
+    function renderAdminDeskView() {
+      const box = document.getElementById('adminDeskMessages');
+      if (!box) return;
+      box.innerHTML = STATE.chatHistory.map(c => `
+        <div class="flex flex-col ${c.sender === 'agent' ? 'items-end' : 'items-start'}">
+          <div class="text-[10px] text-slate-400 mb-0.5">${c.sender === 'agent' ? '我 (技术支持坐席)' : '客户 (Alex Chen)'}</div>
+          <div class="max-w-[75%] p-3 rounded-lg text-xs ${c.sender === 'agent' ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-darkbg-800 text-slate-800 dark:text-slate-200'}">
+            ${c.text}
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono mt-0.5">${c.time}</span>
+        </div>
+      `).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    document.getElementById('adminDeskForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('adminDeskInput');
+      const val = input.value.trim();
+      if (!val) return;
+      input.value = '';
+
+      STATE.chatHistory.push({ sender: 'agent', text: val, time: new Date().toTimeString().slice(0, 5) });
+      renderAdminDeskView();
+      renderChatView();
+      showToast('已向客户网页端推送坐席回复', 'success');
+    });
+
     // --- 当前视图统一调度 ---
     function renderCurrentView() {
       if (STATE.activeTab === 'topology') {
@@ -1625,12 +2003,21 @@
         renderChatView();
       } else if (STATE.activeTab === 'marketing') {
         renderMarketingView();
+      } else if (STATE.activeTab === 'admin-nodes') {
+        renderAdminNodesView();
+      } else if (STATE.activeTab === 'admin-instances') {
+        renderAdminInstancesView();
+      } else if (STATE.activeTab === 'admin-commissions') {
+        renderAdminCommissionsView();
+      } else if (STATE.activeTab === 'admin-desk') {
+        renderAdminDeskView();
       }
       lucide.createIcons();
     }
 
     // 初始化运行
     initTheme();
+    renderNav();
     renderUserCard();
     renderCurrentView();
     updateSimulator();
