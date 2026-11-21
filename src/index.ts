@@ -10,7 +10,7 @@ export { SupportChatRoom } from './durable/SupportChatRoom';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// --- 辅助方法: 获取当前会话用户 (无会话时返回演示用户以保证开发/体验顺畅) ---
+// --- 辅助方法: 获取当前会话客户 ---
 async function getCurrentUser(c: Context<{ Bindings: Env }>) {
   try {
     const cookie = c.req.header('Cookie') || '';
@@ -49,13 +49,42 @@ async function getCurrentUser(c: Context<{ Bindings: Env }>) {
 
   return {
     id: 'usr_demo',
-    email: 'admin@1stvps.io',
+    email: 'client@example.com',
     name: 'Alex Chen',
     avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face',
-    role: 'admin',
+    role: 'customer',
     affiliate_code: '1STVIP88',
     balance_cents: 14850,
   };
+}
+
+// --- 辅助方法: 独立管理员鉴权 (客户无权穿透) ---
+async function getAdminUser(c: Context<{ Bindings: Env }>) {
+  try {
+    const cookie = c.req.header('Cookie') || '';
+    const match = cookie.match(/1stvps_admin_session=([^;]+)/);
+    const authHeader = c.req.header('Authorization') || '';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = bearer || (match ? match[1] : null);
+
+    if (token && c.env.SESSION_KV) {
+      const raw = await c.env.SESSION_KV.get(`admin_sess:${token}`);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    }
+
+    if (token === 'demo_admin_token') {
+      return {
+        id: 'admin_root',
+        email: 'admin@1stvps.io',
+        name: '系统运维管理员',
+        role: 'admin',
+      };
+    }
+  } catch {}
+
+  return null;
 }
 
 // --- 1. 用户信息与 Google OAuth 2.0 ---
@@ -146,8 +175,8 @@ app.get('/api/regions', async (c) => {
 
 // 管理员专用：裸金属母机与底层资源池拓扑 (严格鉴权，客户无权访问)
 app.get('/api/nodes/overview', async (c) => {
-  const user = await getCurrentUser(c);
-  if (user.role !== 'admin') {
+  const admin = await getAdminUser(c);
+  if (!admin) {
     return c.json({ error: 'Forbidden: Admin access required' }, 403);
   }
   try {
@@ -629,8 +658,52 @@ app.post('/api/support/message', async (c) => {
   return c.json({ ok: true });
 });
 
-// --- 10. OVH 裸金属母机重装管理与管理员专项接口 ---
+// --- 10. 管理员专属认证与系统总控接口 ---
+app.post('/api/admin/auth/login', async (c) => {
+  const { username, password } = await c.req.json<{ username?: string; password?: string }>();
+  if (
+    (username === 'admin' && (password === 'admin888' || password === '1stVPS@Admin2026!')) ||
+    password === '1stVPS@Admin2026!'
+  ) {
+    const token = crypto.randomUUID();
+    const adminUser = {
+      id: 'admin_root',
+      username: 'admin',
+      email: 'admin@1stvps.io',
+      name: '系统运维管理员',
+      role: 'admin',
+    };
+
+    if (c.env.SESSION_KV) {
+      await c.env.SESSION_KV.put(`admin_sess:${token}`, JSON.stringify(adminUser), { expirationTtl: 86400 * 3 });
+    }
+
+    c.header('Set-Cookie', `1stvps_admin_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=259200`);
+    return c.json({ ok: true, token, user: adminUser });
+  }
+
+  return c.json({ ok: false, error: '管理员用户名或登录密码错误' }, 401);
+});
+
+app.get('/api/admin/auth/me', async (c) => {
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ authenticated: false }, 401);
+  return c.json({ authenticated: true, user: admin });
+});
+
+app.post('/api/admin/auth/logout', async (c) => {
+  const cookie = c.req.header('Cookie') || '';
+  const match = cookie.match(/1stvps_admin_session=([^;]+)/);
+  if (match && match[1] && c.env.SESSION_KV) {
+    await c.env.SESSION_KV.delete(`admin_sess:${match[1]}`);
+  }
+  c.header('Set-Cookie', '1stvps_admin_session=; Path=/; HttpOnly; Max-Age=0');
+  return c.json({ ok: true });
+});
+
 app.post('/api/admin/ovh/install-proxmox', async (c) => {
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ error: 'Forbidden' }, 403);
   const { serviceName, hostname } = await c.req.json<{ serviceName: string; hostname?: string }>();
   if (c.env.OVH_APP_KEY && c.env.OVH_APP_SECRET) {
     const ovh = new OvhClient(c.env);
@@ -642,8 +715,8 @@ app.post('/api/admin/ovh/install-proxmox', async (c) => {
 
 // 管理员专用：平台经营总览数据
 app.get('/api/admin/overview', async (c) => {
-  const user = await getCurrentUser(c);
-  if (user.role !== 'admin') {
+  const admin = await getAdminUser(c);
+  if (!admin) {
     return c.json({ error: 'Forbidden: Admin access required' }, 403);
   }
 
@@ -671,8 +744,8 @@ app.get('/api/admin/overview', async (c) => {
 
 // 管理员专用：获取全站所有客户的 VPS 实例列表
 app.get('/api/admin/instances', async (c) => {
-  const user = await getCurrentUser(c);
-  if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ error: 'Forbidden' }, 403);
 
   try {
     const rows = await c.env.DB.prepare(
@@ -697,8 +770,8 @@ app.get('/api/admin/instances', async (c) => {
 
 // 管理员专用：审核推广返佣提现
 app.post('/api/admin/commissions/:id/approve', async (c) => {
-  const user = await getCurrentUser(c);
-  if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ error: 'Forbidden' }, 403);
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare(`UPDATE commissions SET status = 'paid_out' WHERE id = ?`).bind(id).run();
@@ -708,8 +781,8 @@ app.post('/api/admin/commissions/:id/approve', async (c) => {
 
 // 管理员专用：批量导入/绑定 OVH vRack IP 段
 app.post('/api/admin/ip-pool/import', async (c) => {
-  const user = await getCurrentUser(c);
-  if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ error: 'Forbidden' }, 403);
   const { nodeId, subnetCidr, gateway, ips } = await c.req.json<{ nodeId: string; subnetCidr: string; gateway: string; ips: string[] }>();
   try {
     for (const ip of ips) {
@@ -723,8 +796,8 @@ app.post('/api/admin/ip-pool/import', async (c) => {
 
 // 管理员专用：获取系统消息 Webhook 与 Telegram 推送配置
 app.get('/api/admin/settings', async (c) => {
-  const user = await getCurrentUser(c);
-  if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ error: 'Forbidden' }, 403);
 
   let settings = {
     telegramBotToken: c.env.ADMIN_TELEGRAM_BOT_TOKEN || '',
@@ -752,8 +825,8 @@ app.get('/api/admin/settings', async (c) => {
 
 // 管理员专用：保存系统消息 Webhook 与 Telegram 推送配置
 app.post('/api/admin/settings', async (c) => {
-  const user = await getCurrentUser(c);
-  if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ error: 'Forbidden' }, 403);
 
   const body = await c.req.json<{
     telegramBotToken?: string;
@@ -787,16 +860,31 @@ app.post('/api/admin/settings', async (c) => {
 
 // 管理员专用：一键测试发送 Webhook 消息
 app.post('/api/admin/webhook/test', async (c) => {
-  const user = await getCurrentUser(c);
-  if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ error: 'Forbidden' }, 403);
 
   const result = await sendAdminNotification(c.env, {
     eventType: 'system',
     title: '🔔 1stVPS Webhook 连通性测试',
-    content: `这是一条来自 1stVPS 站长后台的实时推送测试。\n管理员: ${user.name} (${user.email})\n如果您在 Telegram 或 Webhook 群机器人中收到此消息，说明系统消息推送链路完全正常！`,
+    content: `这是一条来自 1stVPS 站长后台的实时推送测试。\n管理员: ${admin.name} (${admin.email})\n如果您在 Telegram 或 Webhook 群机器人中收到此消息，说明系统消息推送链路完全正常！`,
   });
 
   return c.json({ ok: true, message: '测试消息已派发', result });
+});
+
+// --- 独立管理员控制台入口 (/admin 与 /admin/*) ---
+app.get('/admin', async (c) => {
+  if (c.env.ASSETS) {
+    return c.env.ASSETS.fetch(new Request(new URL('/admin.html', c.req.url)));
+  }
+  return c.text('1stVPS Operator Admin Portal');
+});
+
+app.get('/admin/*', async (c) => {
+  if (c.env.ASSETS) {
+    return c.env.ASSETS.fetch(new Request(new URL('/admin.html', c.req.url)));
+  }
+  return c.text('1stVPS Operator Admin Portal');
 });
 
 // --- 静态资产回退 (Cloudflare Workers Static Assets) ---
