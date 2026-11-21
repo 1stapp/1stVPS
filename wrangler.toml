@@ -1,0 +1,45 @@
+name = "1stvps-platform"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "1stvps-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[[kv_namespaces]]
+binding = "SESSION_KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+[[queues.producers]]
+binding = "PROVISION_QUEUE"
+queue = "1stvps-jobs"
+
+[[queues.consumers]]
+queue = "1stvps-jobs"
+max_batch_size = 5
+max_batch_timeout = 10
+
+[durable_objects]
+bindings = [
+  { name = "SUPPORT_CHAT", class_name = "SupportChatRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["SupportChatRoom"]
+
+[vars]
+APP_URL = "https://1stvps.example.com"
+AFFILIATE_RATE = "0.15"
+EMAIL_FROM = "noreply@1stvps.example.com"
+# Secrets (configure via `wrangler secret put`):
+# JWT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+# OVH_APP_KEY, OVH_APP_SECRET, OVH_CONSUMER_KEY
+# PROXMOX_API_TOKEN, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, RESEND_API_KEY
