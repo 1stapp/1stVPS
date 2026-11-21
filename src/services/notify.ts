@@ -1,4 +1,5 @@
 import { Env } from '../types';
+import { getAdminSettings } from './settings';
 
 export async function sendInternalMessage(
   env: Env,
@@ -15,14 +16,15 @@ export async function sendInternalMessage(
 }
 
 export async function sendTransactionalEmail(env: Env, to: string, subject: string, html: string) {
-  if (!env.RESEND_API_KEY) return { skipped: true };
+  const settings = await getAdminSettings(env);
+  if (!settings.resendApiKey) return { skipped: true };
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      Authorization: `Bearer ${settings.resendApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to, subject, html }),
+    body: JSON.stringify({ from: settings.emailFrom, to, subject, html }),
   });
   return res.json();
 }
@@ -47,37 +49,12 @@ export async function sendAdminNotification(
     content: string;
   }
 ) {
-  let botToken = env.ADMIN_TELEGRAM_BOT_TOKEN;
-  let chatId = env.ADMIN_TELEGRAM_CHAT_ID;
-  let webhookUrl = env.ADMIN_WEBHOOK_URL;
-  let eventToggles = {
-    order: true,
-    support: true,
-    affiliate: true,
-    system: true,
-  };
-
-  if (env.SESSION_KV) {
-    try {
-      const raw = await env.SESSION_KV.get('admin:settings');
-      if (raw) {
-        const parsed = JSON.parse(raw) as {
-          telegramBotToken?: string;
-          telegramChatId?: string;
-          webhookUrl?: string;
-          events?: { order?: boolean; support?: boolean; affiliate?: boolean; system?: boolean };
-        };
-        if (parsed.telegramBotToken) botToken = parsed.telegramBotToken;
-        if (parsed.telegramChatId) chatId = parsed.telegramChatId;
-        if (parsed.webhookUrl) webhookUrl = parsed.webhookUrl;
-        if (parsed.events) {
-          eventToggles = { ...eventToggles, ...parsed.events };
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load admin settings from KV:', e);
-    }
-  }
+  // 推送配置统一从站长后台设置读取 (KV 优先，env 回退)
+  const settings = await getAdminSettings(env);
+  const botToken = settings.telegramBotToken;
+  const chatId = settings.telegramChatId;
+  const webhookUrl = settings.webhookUrl;
+  const eventToggles = settings.events;
 
   // Check if this event type is enabled
   if (eventToggles[opts.eventType] === false) {

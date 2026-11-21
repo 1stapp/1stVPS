@@ -1259,7 +1259,7 @@ HTML_CONTENT = r'''<!DOCTYPE html>
       activeTab: 'dashboard', // default landing tab is dashboard!
       user: {
         loggedIn: true,
-        id: 'usr_demo',
+        id: 'guest',
         name: 'Alex Chen',
         email: 'alex@1stvps.io',
         role: 'admin', // admin user can toggle to admin center

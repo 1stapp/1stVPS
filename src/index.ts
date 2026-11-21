@@ -2,6 +2,14 @@ import { Hono, Context } from 'hono';
 import { Env, QueueJob } from './types';
 import { createCheckoutSession, verifyStripeSignature } from './services/stripe';
 import { runProvisionPipeline } from './services/provisioner';
+import { decryptSecret } from './services/crypto';
+import {
+  getAdminSettings,
+  invalidateAdminSettingsCache,
+  SECRET_MASK,
+  SECRET_SETTING_FIELDS,
+  PLAIN_SETTING_FIELDS,
+} from './services/settings';
 import { ProxmoxClient } from './services/proxmox';
 import { OvhClient } from './services/ovh';
 import { sendInternalMessage, sendTransactionalEmail, sendAdminNotification } from './services/notify';
@@ -10,8 +18,18 @@ export { SupportChatRoom } from './durable/SupportChatRoom';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// --- 辅助方法: 获取当前会话客户 ---
-async function getCurrentUser(c: Context<{ Bindings: Env }>) {
+// --- 辅助方法: 获取当前会话客户 (无有效会话时返回 null，绝不回退到演示用户) ---
+type UserRow = {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string;
+  role: string;
+  affiliate_code: string;
+  balance_cents: number;
+};
+
+async function getCurrentUser(c: Context<{ Bindings: Env }>): Promise<UserRow | null> {
   try {
     const cookie = c.req.header('Cookie') || '';
     const match = cookie.match(/1stvps_session=([^;]+)/);
@@ -19,43 +37,15 @@ async function getCurrentUser(c: Context<{ Bindings: Env }>) {
     if (token && c.env.SESSION_KV) {
       const userId = await c.env.SESSION_KV.get(`sess:${token}`);
       if (userId && c.env.DB) {
-        const u = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(userId).first<{
-          id: string;
-          email: string;
-          name: string;
-          avatar_url: string;
-          role: string;
-          affiliate_code: string;
-          balance_cents: number;
-        }>();
+        const u = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(userId).first<UserRow>();
         if (u) return u;
       }
     }
-    if (c.env.DB) {
-      const demo = await c.env.DB.prepare(`SELECT * FROM users WHERE id = 'usr_demo'`).first<{
-        id: string;
-        email: string;
-        name: string;
-        avatar_url: string;
-        role: string;
-        affiliate_code: string;
-        balance_cents: number;
-      }>();
-      if (demo) return demo;
-    }
   } catch {
-    // fallback
+    // 会话读取失败按未登录处理
   }
 
-  return {
-    id: 'usr_demo',
-    email: 'client@example.com',
-    name: 'Alex Chen',
-    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face',
-    role: 'customer',
-    affiliate_code: '1STVIP88',
-    balance_cents: 14850,
-  };
+  return null;
 }
 
 // --- 辅助方法: 独立管理员鉴权 (客户无权穿透) ---
@@ -73,15 +63,6 @@ async function getAdminUser(c: Context<{ Bindings: Env }>) {
         return JSON.parse(raw);
       }
     }
-
-    if (token === 'demo_admin_token') {
-      return {
-        id: 'admin_root',
-        email: 'admin@1stvps.io',
-        name: '系统运维管理员',
-        role: 'admin',
-      };
-    }
   } catch {}
 
   return null;
@@ -94,6 +75,10 @@ app.get('/api/user/me', async (c) => {
 });
 
 app.get('/api/auth/google', async (c) => {
+  const settings = await getAdminSettings(c.env);
+  if (!settings.googleClientId) {
+    return c.json({ error: 'Google OAuth is not configured' }, 503);
+  }
   const state = crypto.randomUUID();
   const ref = c.req.query('ref') || '';
   if (c.env.SESSION_KV) {
@@ -101,7 +86,7 @@ app.get('/api/auth/google', async (c) => {
   }
 
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-  url.searchParams.set('client_id', c.env.GOOGLE_CLIENT_ID || 'dummy_client_id');
+  url.searchParams.set('client_id', settings.googleClientId);
   url.searchParams.set('redirect_uri', `${c.env.APP_URL || 'http://localhost:8787'}/api/auth/google/callback`);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', 'openid email profile');
@@ -124,13 +109,14 @@ app.get('/api/auth/google/callback', async (c) => {
     }
   }
 
+  const settings = await getAdminSettings(c.env);
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code,
-      client_id: c.env.GOOGLE_CLIENT_ID,
-      client_secret: c.env.GOOGLE_CLIENT_SECRET,
+      client_id: settings.googleClientId,
+      client_secret: settings.googleClientSecret,
       redirect_uri: `${c.env.APP_URL}/api/auth/google/callback`,
       grant_type: 'authorization_code',
     }),
@@ -186,55 +172,9 @@ app.get('/api/nodes/overview', async (c) => {
     ).all();
     const ipDetails = await c.env.DB.prepare(`SELECT * FROM ip_pool LIMIT 100`).all();
     return c.json({ nodes: nodes.results, ipStats: ipStats.results, ips: ipDetails.results });
-  } catch {
-    return c.json({
-      nodes: [
-        {
-          id: 'node_rbx_01',
-          name: 'rbx-bm-01',
-          ovh_service_name: 'ns3198412.ip-51-89-10.eu',
-          datacenter: 'RBX',
-          cpu_model: 'AMD EPYC 7443P (24C/48T)',
-          total_vcpu: 96,
-          used_vcpu: 42,
-          total_ram_gb: 256,
-          used_ram_gb: 112,
-          total_nvme_gb: 3840,
-          used_nvme_gb: 1480,
-          status: 'online',
-        },
-        {
-          id: 'node_gra_02',
-          name: 'gra-bm-02',
-          ovh_service_name: 'ns3284910.ip-141-94-22.eu',
-          datacenter: 'GRA',
-          cpu_model: 'Intel Xeon Gold 6338 (32C/64T)',
-          total_vcpu: 128,
-          used_vcpu: 64,
-          total_ram_gb: 512,
-          used_ram_gb: 224,
-          total_nvme_gb: 7680,
-          used_nvme_gb: 2960,
-          status: 'online',
-        },
-        {
-          id: 'node_sgp_03',
-          name: 'sgp-bm-03',
-          ovh_service_name: 'ns5091231.ip-51-79-144.net',
-          datacenter: 'SGP',
-          cpu_model: 'AMD EPYC 9354P (32C/64T)',
-          total_vcpu: 128,
-          used_vcpu: 36,
-          total_ram_gb: 384,
-          used_ram_gb: 96,
-          total_nvme_gb: 3840,
-          used_nvme_gb: 880,
-          status: 'online',
-        },
-      ],
-      ipStats: [],
-      ips: [],
-    });
+  } catch (err) {
+    console.error('Failed to load nodes overview:', err);
+    return c.json({ error: 'Internal error' }, 500);
   }
 });
 
@@ -243,21 +183,16 @@ app.get('/api/plans', async (c) => {
   try {
     const rows = await c.env.DB.prepare(`SELECT * FROM vps_plans ORDER BY price_cents ASC`).all();
     return c.json({ plans: rows.results });
-  } catch {
-    return c.json({
-      plans: [
-        { id: 'starter', name: 'KVM Starter', vcpu: 2, ram_gb: 4, nvme_gb: 40, bandwidth_tb: 2, price_cents: 600 },
-        { id: 'pro', name: 'KVM Pro', vcpu: 4, ram_gb: 8, nvme_gb: 80, bandwidth_tb: 5, price_cents: 1400 },
-        { id: 'compute', name: 'KVM Compute', vcpu: 8, ram_gb: 16, nvme_gb: 160, bandwidth_tb: 10, price_cents: 2800 },
-        { id: 'extreme', name: 'KVM Extreme', vcpu: 16, ram_gb: 32, nvme_gb: 320, bandwidth_tb: 20, price_cents: 5600 },
-      ],
-    });
+  } catch (err) {
+    console.error('Failed to load plans:', err);
+    return c.json({ error: 'Internal error' }, 500);
   }
 });
 
 // --- 4. 用户 VPS 实例管理 ---
 app.get('/api/vps/instances', async (c) => {
   const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   try {
     const rows = await c.env.DB.prepare(
       `SELECT v.*, p.name as plan_name, p.vcpu, p.ram_gb, p.nvme_gb, p.bandwidth_tb, n.datacenter, n.name as node_name
@@ -270,105 +205,111 @@ app.get('/api/vps/instances', async (c) => {
       .bind(user.id)
       .all();
     return c.json({ instances: rows.results });
-  } catch {
-    return c.json({
-      instances: [
-        {
-          id: 'vm_101',
-          vmid: 101,
-          hostname: 'hk-proxy-edge',
-          datacenter: 'SGP',
-          node_name: 'sgp-bm-03',
-          plan_name: 'KVM Pro',
-          vcpu: 4,
-          ram_gb: 8,
-          nvme_gb: 80,
-          ipv4: '51.79.144.18',
-          os_template: 'Debian 12',
-          status: 'running',
-          cpu_load: 24,
-          expires_at: '2026-12-22T00:00:00Z',
-        },
-        {
-          id: 'vm_102',
-          vmid: 102,
-          hostname: 'eu-api-worker',
-          datacenter: 'RBX',
-          node_name: 'rbx-bm-01',
-          plan_name: 'KVM Compute',
-          vcpu: 8,
-          ram_gb: 16,
-          nvme_gb: 160,
-          ipv4: '51.89.10.44',
-          os_template: 'Ubuntu 24.04 LTS',
-          status: 'running',
-          cpu_load: 41,
-          expires_at: '2026-12-18T00:00:00Z',
-        },
-        {
-          id: 'vm_103',
-          vmid: 103,
-          hostname: 'backup-db-01',
-          datacenter: 'GRA',
-          node_name: 'gra-bm-02',
-          plan_name: 'KVM Starter',
-          vcpu: 2,
-          ram_gb: 4,
-          nvme_gb: 40,
-          ipv4: '141.94.22.91',
-          os_template: 'Rocky Linux 9',
-          status: 'stopped',
-          cpu_load: 0,
-          expires_at: '2026-12-05T00:00:00Z',
-        },
-      ],
-    });
+  } catch (err) {
+    console.error('Failed to load instances:', err);
+    return c.json({ error: 'Internal error' }, 500);
   }
 });
 
+// 辅助方法: 校验实例归属，返回实例与节点信息；不存在或不属于该用户时返回 null
+async function getOwnedInstance(c: Context<{ Bindings: Env }>, instanceId: string, userId: string) {
+  return c.env.DB.prepare(
+    `SELECT v.id, v.vmid, v.ipv4, v.root_password_enc, n.pve_host, n.pve_node
+     FROM vps_instances v JOIN nodes n ON v.node_id = n.id
+     WHERE v.id = ? AND v.user_id = ?`
+  )
+    .bind(instanceId, userId)
+    .first<{ id: string; vmid: number; ipv4: string; root_password_enc: string | null; pve_host: string; pve_node: string }>();
+}
+
 app.post('/api/vps/:id/power', async (c) => {
+  const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const id = c.req.param('id');
   const { action } = await c.req.json<{ action: 'start' | 'stop' | 'reboot' | 'reset' }>();
-  try {
-    const row = await c.env.DB.prepare(
-      `SELECT v.vmid, n.pve_host, n.pve_node FROM vps_instances v JOIN nodes n ON v.node_id = n.id WHERE v.id = ?`
-    )
-      .bind(id)
-      .first<{ vmid: number; pve_host: string; pve_node: string }>();
 
-    if (row && c.env.PROXMOX_API_TOKEN) {
-      const pve = new ProxmoxClient(row.pve_host, c.env.PROXMOX_API_TOKEN);
-      await pve.powerAction(row.pve_node, row.vmid, action);
-    }
-  } catch (err) {
-    console.warn('Power action fallback:', err);
+  const row = await getOwnedInstance(c, id, user.id);
+  if (!row) return c.json({ error: 'Instance not found' }, 404);
+
+  const settings = await getAdminSettings(c.env);
+  if (!settings.proxmoxApiToken) {
+    return c.json({ error: 'Proxmox hypervisor is not configured' }, 501);
   }
-  return c.json({ ok: true, id, action });
+
+  try {
+    const pve = new ProxmoxClient(row.pve_host, settings.proxmoxApiToken);
+    await pve.powerAction(row.pve_node, row.vmid, action);
+  } catch (err) {
+    // 母机调用失败时不得伪造成功，也不得修改实例状态
+    console.error('Power action failed:', err);
+    return c.json({ error: 'Hypervisor power action failed' }, 502);
+  }
+
+  const newStatus = action === 'stop' ? 'stopped' : 'running';
+  await c.env.DB.prepare(`UPDATE vps_instances SET status = ? WHERE id = ?`).bind(newStatus, id).run();
+  return c.json({ ok: true, id, action, status: newStatus });
 });
 
 app.post('/api/vps/:id/rdns', async (c) => {
+  const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const id = c.req.param('id');
-  const { ptr } = await c.req.json<{ ptr: string }>();
-  // Update reverse DNS for the IPv4 assigned to this instance
-  return c.json({ ok: true, id, ptr });
+  await c.req.json<{ ptr: string }>().catch(() => ({ ptr: '' }));
+
+  const row = await getOwnedInstance(c, id, user.id);
+  if (!row) return c.json({ error: 'Instance not found' }, 404);
+
+  // rDNS 尚未接入虚拟化平台/IP 提供商 API，诚实返回未实现，不伪造成功
+  return c.json({ error: 'rDNS 设置尚未接入虚拟化平台，暂不可用' }, 501);
 });
 
 app.post('/api/vps/:id/reinstall', async (c) => {
+  const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const id = c.req.param('id');
-  const { osTemplate } = await c.req.json<{ osTemplate: string }>();
-  return c.json({ ok: true, id, osTemplate, message: '系统重装已派发至母机，预计 60 秒内完成' });
+  await c.req.json<{ osTemplate: string }>().catch(() => ({ osTemplate: '' }));
+
+  const row = await getOwnedInstance(c, id, user.id);
+  if (!row) return c.json({ error: 'Instance not found' }, 404);
+
+  // 系统重装尚未接入虚拟化平台，诚实返回未实现，不伪造成功
+  return c.json({ error: '系统重装尚未接入虚拟化平台，暂不可用' }, 501);
+});
+
+// 实例 SSH 凭据 (仅实例所有者可查看，密码解密后返回)
+app.get('/api/vps/:id/credentials', async (c) => {
+  const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
+  const id = c.req.param('id');
+
+  const row = await getOwnedInstance(c, id, user.id);
+  if (!row) return c.json({ error: 'Instance not found' }, 404);
+  if (!row.root_password_enc) {
+    return c.json({ error: 'Credentials not available for this instance' }, 404);
+  }
+
+  try {
+    const password = await decryptSecret(row.root_password_enc, c.env.JWT_SECRET);
+    return c.json({ ipv4: row.ipv4, username: 'root', password });
+  } catch (err) {
+    console.error('Failed to decrypt instance credentials:', err);
+    return c.json({ error: 'Internal error' }, 500);
+  }
 });
 
 // --- 5. Stripe Checkout & 自动开通流水线 ---
 app.post('/api/billing/checkout', async (c) => {
   const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const { planId, datacenter, osTemplate, hostname, affiliateCode } = await c.req.json();
 
-  let plan = { id: planId, name: 'KVM Pro', price_cents: 1400 };
-  try {
-    const p = await c.env.DB.prepare(`SELECT * FROM vps_plans WHERE id = ?`).bind(planId).first<{ id: string; name: string; price_cents: number }>();
-    if (p) plan = p;
-  } catch {}
+  // 套餐必须真实存在于 vps_plans，不再静默回退到默认套餐
+  const plan = await c.env.DB.prepare(`SELECT * FROM vps_plans WHERE id = ?`)
+    .bind(planId)
+    .first<{ id: string; name: string; price_cents: number }>();
+  if (!plan) {
+    return c.json({ error: 'Plan not found' }, 400);
+  }
 
   const orderId = `ORD-${Date.now().toString().slice(-6)}`;
   try {
@@ -386,7 +327,8 @@ app.post('/api/billing/checkout', async (c) => {
     content: `订单号: ${orderId}\n用户: ${user.name} (${user.email})\n套餐: ${plan.name}\n机房: ${datacenter}\n系统: ${osTemplate}\n主机名: ${hostname}\n金额: $${(plan.price_cents / 100).toFixed(2)} USD`,
   });
 
-  if (c.env.STRIPE_SECRET_KEY) {
+  const checkoutSettings = await getAdminSettings(c.env);
+  if (checkoutSettings.stripeSecretKey) {
     const session = await createCheckoutSession(c.env, {
       orderId,
       userId: user.id,
@@ -401,18 +343,27 @@ app.post('/api/billing/checkout', async (c) => {
     return c.json({ checkoutUrl: session.url, orderId });
   }
 
-  // 开发/演示模式: 模拟即刻支付并触发自动开通
-  return c.json({
-    checkoutUrl: `/?checkout=simulated&orderId=${orderId}&planId=${plan.id}&dc=${datacenter}&os=${encodeURIComponent(osTemplate)}&host=${encodeURIComponent(hostname)}`,
-    orderId,
-    simulated: true,
-  });
+  // 未配置 Stripe 时，仅在显式开启 ALLOW_SIMULATED_CHECKOUT 的环境下才返回模拟结账
+  if (c.env.ALLOW_SIMULATED_CHECKOUT === 'true') {
+    return c.json({
+      checkoutUrl: `/?checkout=simulated&orderId=${orderId}&planId=${plan.id}&dc=${datacenter}&os=${encodeURIComponent(osTemplate)}&host=${encodeURIComponent(hostname)}`,
+      orderId,
+      simulated: true,
+    });
+  }
+
+  return c.json({ error: 'Payment is not configured' }, 503);
 });
 
 app.post('/api/webhooks/stripe', async (c) => {
+  const settings = await getAdminSettings(c.env);
+  if (!settings.stripeWebhookSecret) {
+    console.error('Stripe webhook secret is not configured');
+    return c.json({ error: 'Stripe webhook is not configured' }, 500);
+  }
   const sig = c.req.header('stripe-signature') || '';
   const rawBody = await c.req.text();
-  const valid = await verifyStripeSignature(rawBody, sig, c.env.STRIPE_WEBHOOK_SECRET);
+  const valid = await verifyStripeSignature(rawBody, sig, settings.stripeWebhookSecret);
   if (!valid) return c.json({ error: 'Invalid signature' }, 400);
 
   const event = JSON.parse(rawBody) as { type: string; data: { object: { metadata: Record<string, string>; amount_total: number } } };
@@ -426,7 +377,7 @@ app.post('/api/webhooks/stripe', async (c) => {
         .bind(meta.affiliateCode)
         .first<{ id: string }>();
       if (aff && aff.id !== meta.userId) {
-        const rate = parseFloat(c.env.AFFILIATE_RATE || '0.15');
+        const rate = parseFloat(settings.affiliateRate || '0.15');
         const commissionCents = Math.round((event.data.object.amount_total || 0) * rate);
         await c.env.DB.batch([
           c.env.DB.prepare(`INSERT INTO commissions (id, affiliate_user_id, order_id, referred_user_id, amount_cents) VALUES (?, ?, ?, ?, ?)`)
@@ -467,6 +418,7 @@ app.post('/api/webhooks/stripe', async (c) => {
 // --- 6. 推广赚佣中心 (Affiliate & Referral) ---
 app.get('/api/affiliate/stats', async (c) => {
   const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   try {
     const rows = await c.env.DB.prepare(
       `SELECT c.*, u.email as referred_email
@@ -486,27 +438,59 @@ app.get('/api/affiliate/stats', async (c) => {
       referralCount: rows.results.length,
       commissions: rows.results,
     });
-  } catch {
-    return c.json({
-      affiliateCode: user.affiliate_code || '1STVIP88',
-      balanceCents: 14850,
-      totalEarnedCents: 42600,
-      referralCount: 18,
-      commissions: [
-        { orderId: 'ORD-8821', referred_email: 'm***@gmail.com', amount_cents: 420, status: 'available', created_at: '2026-11-20' },
-        { orderId: 'ORD-8834', referred_email: 'k***@outlook.com', amount_cents: 840, status: 'available', created_at: '2026-11-19' },
-        { orderId: 'ORD-8849', referred_email: 's***@proton.me', amount_cents: 210, status: 'available', created_at: '2026-11-18' },
-      ],
-    });
+  } catch (err) {
+    console.error('Failed to load affiliate stats:', err);
+    return c.json({ error: 'Internal error' }, 500);
   }
 });
 
 app.post('/api/affiliate/withdraw', async (c) => {
   const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const { amountCents, method } = await c.req.json<{ amountCents: number; method: 'credit' | 'payout' }>();
   if (!amountCents || amountCents <= 0) {
     return c.json({ error: '无效提现金额' }, 400);
   }
+
+  // 可用额度 = 该用户 status='available' 的佣金总额，超出即拒绝
+  const availRow = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(amount_cents), 0) AS total FROM commissions WHERE affiliate_user_id = ? AND status = 'available'`
+  )
+    .bind(user.id)
+    .first<{ total: number }>();
+  const availableCents = availRow?.total ?? 0;
+  if (amountCents > availableCents) {
+    return c.json({ error: '提现金额超过可用佣金余额' }, 400);
+  }
+
+  // 按最旧优先逐笔消耗佣金：整笔标记状态，最后一笔不足时只扣减金额、剩余保持 available
+  const commRows = await c.env.DB.prepare(
+    `SELECT id, amount_cents FROM commissions WHERE affiliate_user_id = ? AND status = 'available' ORDER BY created_at ASC`
+  )
+    .bind(user.id)
+    .all<{ id: string; amount_cents: number }>();
+  const consumedStatus = method === 'credit' ? 'converted' : 'paid_out';
+  const updates: D1PreparedStatement[] = [];
+  let remaining = amountCents;
+  for (const row of commRows.results) {
+    if (remaining <= 0) break;
+    if (row.amount_cents <= remaining) {
+      updates.push(c.env.DB.prepare(`UPDATE commissions SET status = ? WHERE id = ?`).bind(consumedStatus, row.id));
+      remaining -= row.amount_cents;
+    } else {
+      updates.push(c.env.DB.prepare(`UPDATE commissions SET amount_cents = amount_cents - ? WHERE id = ?`).bind(remaining, row.id));
+      remaining = 0;
+    }
+  }
+
+  const bonusCents = method === 'credit' ? Math.round(amountCents * 0.1) : 0;
+  if (method === 'credit') {
+    // 本金已在佣金结算时计入 balance_cents，这里只补发 10% 奖励，避免重复入账
+    updates.push(c.env.DB.prepare(`UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?`).bind(bonusCents, user.id));
+  } else {
+    updates.push(c.env.DB.prepare(`UPDATE users SET balance_cents = balance_cents - ? WHERE id = ?`).bind(amountCents, user.id));
+  }
+  await c.env.DB.batch(updates);
 
   // 触发站长系统通知 Webhook: 合伙人佣金提现申请
   await sendAdminNotification(c.env, {
@@ -516,13 +500,6 @@ app.post('/api/affiliate/withdraw', async (c) => {
   });
 
   if (method === 'credit') {
-    // 提现为账户余额并赠送 10%
-    const bonusCents = Math.round(amountCents * 0.1);
-    try {
-      await c.env.DB.prepare(`UPDATE users SET balance_cents = balance_cents + ? WHERE id = ?`)
-        .bind(bonusCents, user.id)
-        .run();
-    } catch {}
     return c.json({ ok: true, method: 'credit', bonusCents, message: `成功兑换余额并获得 10% 额外奖励 $${(bonusCents / 100).toFixed(2)}` });
   }
 
@@ -532,45 +509,21 @@ app.post('/api/affiliate/withdraw', async (c) => {
 // --- 7. 站内信与 Web Push ---
 app.get('/api/messages', async (c) => {
   const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   try {
     const rows = await c.env.DB.prepare(`SELECT * FROM messages WHERE user_id = ? ORDER BY created_at DESC`)
       .bind(user.id)
       .all();
     return c.json({ messages: rows.results });
-  } catch {
-    return c.json({
-      messages: [
-        {
-          id: 'm1',
-          category: 'system',
-          title: 'VPS hk-proxy-edge 自动开通就绪',
-          body: '已通过 Proxmox VE API 在 sgp-bm-03 母机上分配 IPv4: 51.79.144.18，初始密码与 SSH 密钥已注入。',
-          is_read: 0,
-          created_at: '10 分钟前',
-        },
-        {
-          id: 'm2',
-          category: 'affiliate',
-          title: '推广返佣到账通知 +$8.40',
-          body: '受邀客户 k***@outlook.com 成功购买 KVM Extreme 套餐，15% 推广佣金已计入您的账户。',
-          is_read: 0,
-          created_at: '2 小时前',
-        },
-        {
-          id: 'm3',
-          category: 'billing',
-          title: 'Stripe 电子发票已出账 #INV-9281',
-          body: '已成功扣缴 $14.00 USD，下个计费周期自动续费将于 2026-12-22 发起。',
-          is_read: 1,
-          created_at: '昨天',
-        },
-      ],
-    });
+  } catch (err) {
+    console.error('Failed to load messages:', err);
+    return c.json({ error: 'Internal error' }, 500);
   }
 });
 
 app.post('/api/messages/mark-read', async (c) => {
   const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const { messageId } = await c.req.json().catch(() => ({ messageId: null }));
   try {
     if (messageId) {
@@ -584,6 +537,7 @@ app.post('/api/messages/mark-read', async (c) => {
 
 app.post('/api/push/subscribe', async (c) => {
   const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const { endpoint, keys } = await c.req.json();
   try {
     await c.env.DB.prepare(
@@ -597,27 +551,20 @@ app.post('/api/push/subscribe', async (c) => {
 
 // --- 8. 邮件营销后台 (Cloudflare Queues + Resend API) ---
 app.get('/api/marketing/campaigns', async (c) => {
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ error: 'Forbidden: Admin access required' }, 403);
   try {
     const rows = await c.env.DB.prepare(`SELECT * FROM email_campaigns ORDER BY created_at DESC`).all();
     return c.json({ campaigns: rows.results });
-  } catch {
-    return c.json({
-      campaigns: [
-        {
-          id: 'camp_01',
-          title: '11 月黑色星期五裸金属特惠',
-          subject: '[1stVPS] 新加坡 SGP 节点全量扩容，首月 8 折特惠代码：BLACKFRIDAY',
-          segment: 'active_vps',
-          sent_count: 412,
-          status: 'sent',
-          created_at: '2026-11-20',
-        },
-      ],
-    });
+  } catch (err) {
+    console.error('Failed to load campaigns:', err);
+    return c.json({ error: 'Internal error' }, 500);
   }
 });
 
 app.post('/api/marketing/campaigns', async (c) => {
+  const admin = await getAdminUser(c);
+  if (!admin) return c.json({ error: 'Forbidden: Admin access required' }, 403);
   const { title, subject, segment, htmlContent } = await c.req.json();
   const id = crypto.randomUUID();
   try {
@@ -636,6 +583,12 @@ app.post('/api/marketing/campaigns', async (c) => {
 
 // --- 9. 在线客服 WebSocket (Cloudflare Durable Objects) ---
 app.get('/api/support/ws/:roomId', async (c) => {
+  // 升级 WebSocket 前必须持有有效的客户会话或管理员会话
+  const user = await getCurrentUser(c);
+  const admin = user ? null : await getAdminUser(c);
+  if (!user && !admin) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
   if (c.env.SUPPORT_CHAT) {
     const id = c.env.SUPPORT_CHAT.idFromName(c.req.param('roomId'));
     const stub = c.env.SUPPORT_CHAT.get(id);
@@ -646,6 +599,7 @@ app.get('/api/support/ws/:roomId', async (c) => {
 
 app.post('/api/support/message', async (c) => {
   const user = await getCurrentUser(c);
+  if (!user) return c.json({ error: 'Unauthorized' }, 401);
   const { text, roomId } = await c.req.json<{ text: string; roomId?: string }>();
 
   // 触发站长系统通知 Webhook: 客户发起在线咨询
@@ -661,10 +615,13 @@ app.post('/api/support/message', async (c) => {
 // --- 10. 管理员专属认证与系统总控接口 ---
 app.post('/api/admin/auth/login', async (c) => {
   const { username, password } = await c.req.json<{ username?: string; password?: string }>();
-  if (
-    (username === 'admin' && (password === 'admin888' || password === '1stVPS@Admin2026!')) ||
-    password === '1stVPS@Admin2026!'
-  ) {
+
+  // 管理员密码通过 ADMIN_PASSWORD secret 配置，未配置时禁用管理员登录
+  if (!c.env.ADMIN_PASSWORD) {
+    return c.json({ ok: false, error: 'Admin login is not configured' }, 503);
+  }
+
+  if (username === 'admin' && password === c.env.ADMIN_PASSWORD) {
     const token = crypto.randomUUID();
     const adminUser = {
       id: 'admin_root',
@@ -678,7 +635,7 @@ app.post('/api/admin/auth/login', async (c) => {
       await c.env.SESSION_KV.put(`admin_sess:${token}`, JSON.stringify(adminUser), { expirationTtl: 86400 * 3 });
     }
 
-    c.header('Set-Cookie', `1stvps_admin_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=259200`);
+    c.header('Set-Cookie', `1stvps_admin_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=259200`);
     return c.json({ ok: true, token, user: adminUser });
   }
 
@@ -705,7 +662,8 @@ app.post('/api/admin/ovh/install-proxmox', async (c) => {
   const admin = await getAdminUser(c);
   if (!admin) return c.json({ error: 'Forbidden' }, 403);
   const { serviceName, hostname } = await c.req.json<{ serviceName: string; hostname?: string }>();
-  if (c.env.OVH_APP_KEY && c.env.OVH_APP_SECRET) {
+  const settings = await getAdminSettings(c.env);
+  if (settings.ovhAppKey && settings.ovhAppSecret) {
     const ovh = new OvhClient(c.env);
     const res = await ovh.installProxmoxTemplate(serviceName, 'proxmox8_64', hostname);
     return c.json({ ok: true, ovhTask: res });
@@ -727,18 +685,14 @@ app.get('/api/admin/overview', async (c) => {
     const pendingComms = await c.env.DB.prepare(`SELECT COUNT(*) as count, SUM(amount_cents) as total FROM commissions WHERE status = 'available'`).first<{ count: number; total: number }>();
 
     return c.json({
-      totalUsers: usersCount?.count || 1284,
-      totalInstances: vpsCount?.count || 412,
-      totalRevenueCents: ordersRev?.total || 1489000,
-      pendingCommissionsCents: pendingComms?.total || 42800,
+      totalUsers: usersCount?.count ?? 0,
+      totalInstances: vpsCount?.count ?? 0,
+      totalRevenueCents: ordersRev?.total ?? 0,
+      pendingCommissionsCents: pendingComms?.total ?? 0,
     });
-  } catch {
-    return c.json({
-      totalUsers: 1284,
-      totalInstances: 412,
-      totalRevenueCents: 1489000,
-      pendingCommissionsCents: 42800,
-    });
+  } catch (err) {
+    console.error('Failed to load admin overview:', err);
+    return c.json({ error: 'Internal error' }, 500);
   }
 });
 
@@ -757,14 +711,9 @@ app.get('/api/admin/instances', async (c) => {
        ORDER BY v.created_at DESC LIMIT 100`
     ).all();
     return c.json({ instances: rows.results });
-  } catch {
-    return c.json({
-      instances: [
-        { id: 'vm_101', vmid: 101, hostname: 'hk-proxy-edge', user_email: 'alex@1stvps.io', user_name: 'Alex Chen', node_name: 'sgp-bm-03', datacenter: 'SGP', plan_name: 'KVM Pro', ipv4: '51.79.144.18', status: 'running' },
-        { id: 'vm_102', vmid: 102, hostname: 'eu-api-worker', user_email: 'dev@corp.eu', user_name: 'Dev User', node_name: 'rbx-bm-01', datacenter: 'RBX', plan_name: 'KVM Compute', ipv4: '51.89.10.44', status: 'running' },
-        { id: 'vm_103', vmid: 103, hostname: 'backup-db-01', user_email: 'ops@cloud.io', user_name: 'Ops Team', node_name: 'gra-bm-02', datacenter: 'GRA', plan_name: 'KVM Starter', ipv4: '141.94.22.91', status: 'stopped' },
-      ],
-    });
+  } catch (err) {
+    console.error('Failed to load admin instances:', err);
+    return c.json({ error: 'Internal error' }, 500);
   }
 });
 
@@ -794,68 +743,94 @@ app.post('/api/admin/ip-pool/import', async (c) => {
   return c.json({ ok: true, imported: ips.length });
 });
 
-// 管理员专用：获取系统消息 Webhook 与 Telegram 推送配置
+// 管理员专用：获取系统配置 (KV 优先、env 回退；密钥字段只返回掩码与是否已配置，绝不回显明文)
 app.get('/api/admin/settings', async (c) => {
   const admin = await getAdminUser(c);
   if (!admin) return c.json({ error: 'Forbidden' }, 403);
 
-  let settings = {
-    telegramBotToken: c.env.ADMIN_TELEGRAM_BOT_TOKEN || '',
-    telegramChatId: c.env.ADMIN_TELEGRAM_CHAT_ID || '',
-    webhookUrl: c.env.ADMIN_WEBHOOK_URL || '',
-    events: {
-      order: true,
-      support: true,
-      affiliate: true,
-      system: true,
+  const s = await getAdminSettings(c.env);
+  const mask = (v: string) => (v ? SECRET_MASK : '');
+  return c.json({
+    settings: {
+      telegramBotToken: mask(s.telegramBotToken),
+      telegramBotTokenSet: !!s.telegramBotToken,
+      telegramChatId: s.telegramChatId,
+      webhookUrl: s.webhookUrl,
+      events: s.events,
+      stripeSecretKey: mask(s.stripeSecretKey),
+      stripeSecretKeySet: !!s.stripeSecretKey,
+      stripeWebhookSecret: mask(s.stripeWebhookSecret),
+      stripeWebhookSecretSet: !!s.stripeWebhookSecret,
+      googleClientId: mask(s.googleClientId),
+      googleClientIdSet: !!s.googleClientId,
+      googleClientSecret: mask(s.googleClientSecret),
+      googleClientSecretSet: !!s.googleClientSecret,
+      resendApiKey: mask(s.resendApiKey),
+      resendApiKeySet: !!s.resendApiKey,
+      emailFrom: s.emailFrom,
+      affiliateRate: s.affiliateRate,
+      ovhAppKey: mask(s.ovhAppKey),
+      ovhAppKeySet: !!s.ovhAppKey,
+      ovhAppSecret: mask(s.ovhAppSecret),
+      ovhAppSecretSet: !!s.ovhAppSecret,
+      ovhConsumerKey: mask(s.ovhConsumerKey),
+      ovhConsumerKeySet: !!s.ovhConsumerKey,
+      proxmoxApiToken: mask(s.proxmoxApiToken),
+      proxmoxApiTokenSet: !!s.proxmoxApiToken,
+      vapidPublicKey: mask(s.vapidPublicKey),
+      vapidPublicKeySet: !!s.vapidPublicKey,
+      vapidPrivateKey: mask(s.vapidPrivateKey),
+      vapidPrivateKeySet: !!s.vapidPrivateKey,
     },
-  };
-
-  if (c.env.SESSION_KV) {
-    try {
-      const raw = await c.env.SESSION_KV.get('admin:settings');
-      if (raw) {
-        settings = { ...settings, ...JSON.parse(raw) };
-      }
-    } catch {}
-  }
-
-  return c.json({ settings });
+  });
 });
 
-// 管理员专用：保存系统消息 Webhook 与 Telegram 推送配置
+// 管理员专用：保存系统配置到 KV (在现有 KV 原始值上合并；密钥字段传空或回传掩码表示保持原值)
 app.post('/api/admin/settings', async (c) => {
   const admin = await getAdminUser(c);
   if (!admin) return c.json({ error: 'Forbidden' }, 403);
 
-  const body = await c.req.json<{
-    telegramBotToken?: string;
-    telegramChatId?: string;
-    webhookUrl?: string;
-    events?: { order?: boolean; support?: boolean; affiliate?: boolean; system?: boolean };
-  }>();
+  const body = await c.req.json<Record<string, unknown>>();
 
-  let currentSettings: any = {};
+  let current: Record<string, unknown> = {};
   if (c.env.SESSION_KV) {
     try {
       const raw = await c.env.SESSION_KV.get('admin:settings');
-      if (raw) currentSettings = JSON.parse(raw);
+      if (raw) current = JSON.parse(raw) as Record<string, unknown>;
     } catch {}
   }
 
-  const updatedSettings = {
-    ...currentSettings,
-    telegramBotToken: body.telegramBotToken !== undefined ? body.telegramBotToken : (currentSettings.telegramBotToken || ''),
-    telegramChatId: body.telegramChatId !== undefined ? body.telegramChatId : (currentSettings.telegramChatId || ''),
-    webhookUrl: body.webhookUrl !== undefined ? body.webhookUrl : (currentSettings.webhookUrl || ''),
-    events: body.events ? { ...(currentSettings.events || { order: true, support: true, affiliate: true, system: true }), ...body.events } : (currentSettings.events || { order: true, support: true, affiliate: true, system: true }),
-  };
+  const next: Record<string, unknown> = { ...current };
 
-  if (c.env.SESSION_KV) {
-    await c.env.SESSION_KV.put('admin:settings', JSON.stringify(updatedSettings));
+  // 非密钥字段：传入即覆盖 (传空字符串 = 清除 KV 值、回退 env)
+  for (const field of PLAIN_SETTING_FIELDS) {
+    if (typeof body[field] === 'string') {
+      next[field] = body[field];
+    }
+  }
+  // 密钥字段：空字符串或掩码占位 = 保持现有值不变，其余视为新值写入
+  for (const field of SECRET_SETTING_FIELDS) {
+    const v = body[field];
+    if (typeof v === 'string' && v !== '' && v !== SECRET_MASK) {
+      next[field] = v;
+    }
+  }
+  if (body.events && typeof body.events === 'object') {
+    const prevEvents = (current.events as Record<string, boolean> | undefined) || {
+      order: true,
+      support: true,
+      affiliate: true,
+      system: true,
+    };
+    next.events = { ...prevEvents, ...(body.events as Record<string, boolean>) };
   }
 
-  return c.json({ ok: true, message: '站长系统消息推送设置已成功保存', settings: updatedSettings });
+  if (c.env.SESSION_KV) {
+    await c.env.SESSION_KV.put('admin:settings', JSON.stringify(next));
+  }
+  invalidateAdminSettingsCache(c.env);
+
+  return c.json({ ok: true, message: '站长系统配置已成功保存' });
 });
 
 // 管理员专用：一键测试发送 Webhook 消息

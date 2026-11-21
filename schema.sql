@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS commissions (
   order_id TEXT NOT NULL REFERENCES orders(id),
   referred_user_id TEXT NOT NULL REFERENCES users(id),
   amount_cents INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'available', -- 'pending' | 'available' | 'paid_out'
+  status TEXT NOT NULL DEFAULT 'available', -- 'pending' | 'available' | 'converted' | 'paid_out'
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -157,7 +157,5 @@ INSERT OR IGNORE INTO ip_pool (ip, cidr, gateway, node_id, status) VALUES
   ('141.94.22.65', '141.94.22.65/28', '141.94.22.78', 'node_gra_02', 'assigned'),
   ('141.94.22.66', '141.94.22.66/28', '141.94.22.78', 'node_gra_02', 'free');
 
--- 4. 演示管理员与客户账号
-INSERT OR IGNORE INTO users (id, email, name, avatar_url, role, affiliate_code, balance_cents) VALUES
-  ('usr_demo', 'admin@1stvps.io', 'Alex Chen', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face', 'admin', '1STVIP88', 14850);
+-- 4. （已移除演示种子用户：生产环境不得预置任何演示/管理员账号，客户通过 Google OAuth 注册，管理员通过 ADMIN_PASSWORD 登录）
 

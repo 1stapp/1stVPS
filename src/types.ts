@@ -10,6 +10,8 @@ export interface Env {
   EMAIL_FROM: string;
 
   JWT_SECRET: string;
+  ADMIN_PASSWORD?: string;
+  ALLOW_SIMULATED_CHECKOUT?: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   STRIPE_SECRET_KEY: string;

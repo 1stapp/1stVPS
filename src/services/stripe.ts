@@ -1,4 +1,5 @@
 import { Env } from '../types';
+import { getAdminSettings } from './settings';
 
 /**
  * Stripe Checkout & Webhook 验签 (Workers 原生 Web Crypto HMAC-SHA256)
@@ -35,10 +36,11 @@ export async function createCheckoutSession(
     'metadata[affiliateCode]': opts.affiliateCode || '',
   });
 
+  const settings = await getAdminSettings(env);
   const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      Authorization: `Bearer ${settings.stripeSecretKey}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: params.toString(),
@@ -50,11 +52,26 @@ export async function createCheckoutSession(
   return res.json() as Promise<{ id: string; url: string }>;
 }
 
+/** 常量时间字符串比较，防止时序侧信道 */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 export async function verifyStripeSignature(payload: string, sigHeader: string, secret: string): Promise<boolean> {
   const parts = Object.fromEntries(sigHeader.split(',').map((p) => p.split('=')));
   const timestamp = parts['t'];
   const expectedSig = parts['v1'];
   if (!timestamp || !expectedSig) return false;
+
+  // 时间戳容差 300 秒，过期签名一律拒绝（防重放）
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts)) return false;
+  if (Math.abs(Math.floor(Date.now() / 1000) - ts) > 300) return false;
 
   const key = await crypto.subtle.importKey(
     'raw',
@@ -68,5 +85,5 @@ export async function verifyStripeSignature(payload: string, sigHeader: string, 
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
-  return hex === expectedSig;
+  return timingSafeEqual(hex, expectedSig);
 }

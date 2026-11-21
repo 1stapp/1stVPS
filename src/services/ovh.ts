@@ -1,4 +1,5 @@
 import { Env } from '../types';
+import { getAdminSettings } from './settings';
 
 /**
  * OVHcloud API v1 客户端 (Workers 原生 Web Crypto SHA-1 签名)
@@ -18,18 +19,19 @@ export class OvhClient {
   }
 
   async request<T = unknown>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
+    const settings = await getAdminSettings(this.env);
     const url = `${this.endpoint}${path}`;
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const payload = body ? JSON.stringify(body) : '';
-    const toSign = `${this.env.OVH_APP_SECRET}+${this.env.OVH_CONSUMER_KEY}+${method}+${url}+${payload}+${timestamp}`;
+    const toSign = `${settings.ovhAppSecret}+${settings.ovhConsumerKey}+${method}+${url}+${payload}+${timestamp}`;
     const signature = `$1$${await this.sha1Hex(toSign)}`;
 
     const res = await fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
-        'X-Ovh-Application': this.env.OVH_APP_KEY,
-        'X-Ovh-Consumer': this.env.OVH_CONSUMER_KEY,
+        'X-Ovh-Application': settings.ovhAppKey,
+        'X-Ovh-Consumer': settings.ovhConsumerKey,
         'X-Ovh-Timestamp': timestamp,
         'X-Ovh-Signature': signature,
       },

@@ -103,7 +103,7 @@ ADMIN_HTML = r'''<!DOCTYPE html>
 
         <div>
           <label class="block text-xs font-medium text-slate-300 mb-1.5">安全密钥 / 管理密码 (Password)</label>
-          <input type="password" id="loginPassword" required value="admin888" class="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-700 bg-darkbg-950 text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="••••••••" />
+          <input type="password" id="loginPassword" required class="w-full px-3.5 py-2.5 text-xs rounded-lg border border-slate-700 bg-darkbg-950 text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="••••••••" />
         </div>
 
         <button type="submit" id="loginSubmitBtn" class="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-md transition flex items-center justify-center gap-2">
@@ -113,7 +113,7 @@ ADMIN_HTML = r'''<!DOCTYPE html>
       </form>
 
       <div class="pt-2 text-center">
-        <span class="text-[11px] text-slate-500">演示凭据已预置：账号 <code>admin</code> / 密码 <code>admin888</code></span>
+        <span class="text-[11px] text-slate-500">请使用管理员账号与安全密钥登录</span>
       </div>
     </div>
   </div>
@@ -438,7 +438,7 @@ ADMIN_HTML = r'''<!DOCTYPE html>
                 </div>
                 
                 <div>
-                  <label class="block text-[11px] font-medium text-slate-400 mb-1">Telegram Bot Token</label>
+                  <label class="block text-[11px] font-medium text-slate-400 mb-1">Telegram Bot Token <span id="stateTelegramBotToken" class="text-[10px] text-slate-500"></span></label>
                   <input type="password" id="webhookTgToken" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="7123456789:AAHk..._your_token" />
                   <span class="text-[10px] text-slate-500">在 Telegram 向 @BotFather 发送 /newbot 获取</span>
                 </div>
@@ -467,6 +467,109 @@ ADMIN_HTML = r'''<!DOCTYPE html>
                   <div>· 支持群机器人静默接收全量经营报警</div>
                   <div>· 订单发生时可点击消息直达处理链路</div>
                 </div>
+              </div>
+            </div>
+
+                        <!-- Platform Service Credentials -->
+            <div class="space-y-3 pt-3 border-t border-darkbg-700">
+              <div>
+                <h3 class="text-xs font-semibold text-white">平台服务凭据与业务参数</h3>
+                <p class="text-[11px] text-slate-500 mt-0.5">以下凭据保存于站长后台设置 (Cloudflare KV)，优先于环境变量 / Wrangler Secret 生效；密钥类字段出于安全只显示配置状态，输入框留空表示不修改已保存的值。</p>
+              </div>
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                <!-- Stripe -->
+                <div class="p-4 rounded-xl bg-darkbg-900 border border-darkbg-700 space-y-3.5">
+                  <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded-full bg-violet-500 text-white flex items-center justify-center text-xs font-bold font-mono">ST</div>
+                    <h3 class="text-xs font-semibold text-white">Stripe 支付</h3>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Stripe Secret Key <span id="stateStripeSecretKey" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setStripeSecretKey" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="sk_live_... 或 sk_test_..." />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Stripe Webhook Secret <span id="stateStripeWebhookSecret" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setStripeWebhookSecret" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="whsec_..." />
+                  </div>
+                </div>
+
+                <!-- Google OAuth -->
+                <div class="p-4 rounded-xl bg-darkbg-900 border border-darkbg-700 space-y-3.5">
+                  <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs font-bold font-mono">G</div>
+                    <h3 class="text-xs font-semibold text-white">Google OAuth 客户登录</h3>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Google Client ID <span id="stateGoogleClientId" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setGoogleClientId" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="...apps.googleusercontent.com" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Google Client Secret <span id="stateGoogleClientSecret" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setGoogleClientSecret" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="GOCSPX-..." />
+                  </div>
+                </div>
+
+                <!-- Resend & Affiliate -->
+                <div class="p-4 rounded-xl bg-darkbg-900 border border-darkbg-700 space-y-3.5">
+                  <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold font-mono">RS</div>
+                    <h3 class="text-xs font-semibold text-white">Resend 邮件与推广参数</h3>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Resend API Key <span id="stateResendApiKey" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setResendApiKey" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="re_..." />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">发信地址 (Email From)</label>
+                    <input type="text" id="setEmailFrom" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="noreply@example.com" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">推广返佣比例 (Affiliate Rate)</label>
+                    <input type="text" id="setAffiliateRate" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="0.15 表示 15%" />
+                  </div>
+                </div>
+
+                <!-- OVH -->
+                <div class="p-4 rounded-xl bg-darkbg-900 border border-darkbg-700 space-y-3.5">
+                  <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold font-mono">OVH</div>
+                    <h3 class="text-xs font-semibold text-white">OVHcloud 母机 API</h3>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">OVH App Key <span id="stateOvhAppKey" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setOvhAppKey" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="OVH Application Key" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">OVH App Secret <span id="stateOvhAppSecret" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setOvhAppSecret" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="OVH Application Secret" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">OVH Consumer Key <span id="stateOvhConsumerKey" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setOvhConsumerKey" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="OVH Consumer Key" />
+                  </div>
+                </div>
+
+                <!-- Proxmox & VAPID -->
+                <div class="p-4 rounded-xl bg-darkbg-900 border border-darkbg-700 space-y-3.5">
+                  <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-bold font-mono">PVE</div>
+                    <h3 class="text-xs font-semibold text-white">Proxmox VE 与 Web Push</h3>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Proxmox API Token <span id="stateProxmoxApiToken" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setProxmoxApiToken" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="user@pam!tokenid=uuid" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">VAPID Public Key <span id="stateVapidPublicKey" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setVapidPublicKey" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="Web Push VAPID 公钥" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">VAPID Private Key <span id="stateVapidPrivateKey" class="text-[10px] text-slate-500"></span></label>
+                    <input type="password" id="setVapidPrivateKey" class="w-full px-3 py-2 text-xs rounded-lg border border-darkbg-600 bg-darkbg-950 text-white font-mono" placeholder="Web Push VAPID 私钥" />
+                  </div>
+                </div>
+
               </div>
             </div>
 
@@ -922,13 +1025,40 @@ ADMIN_HTML = r'''<!DOCTYPE html>
     }
 
     // Webhook Settings
+    // 密钥类字段不回显明文：只在标签旁标注 已配置/未配置，输入框留空表示不修改
+    function markSecretState(inputId, stateId, isSet) {
+      const input = document.getElementById(inputId);
+      if (input) {
+        input.value = '';
+        input.placeholder = isSet ? '••••••（已配置，留空不修改）' : '未配置，请输入';
+      }
+      const state = document.getElementById(stateId);
+      if (state) {
+        state.textContent = isSet ? '· 已配置' : '· 未配置';
+        state.className = 'text-[10px] ' + (isSet ? 'text-emerald-400' : 'text-slate-500');
+      }
+    }
+
     function loadAdminWebhookSettings() {
       fetch('/api/admin/settings')
         .then(res => res.json())
         .then(data => {
           if (data && data.settings) {
             const s = data.settings;
-            if (s.telegramBotToken) document.getElementById('webhookTgToken').value = s.telegramBotToken;
+            markSecretState('webhookTgToken', 'stateTelegramBotToken', !!s.telegramBotTokenSet);
+            if (s.emailFrom) document.getElementById('setEmailFrom').value = s.emailFrom;
+            if (s.affiliateRate) document.getElementById('setAffiliateRate').value = s.affiliateRate;
+            markSecretState('setStripeSecretKey', 'stateStripeSecretKey', !!s.stripeSecretKeySet);
+            markSecretState('setStripeWebhookSecret', 'stateStripeWebhookSecret', !!s.stripeWebhookSecretSet);
+            markSecretState('setGoogleClientId', 'stateGoogleClientId', !!s.googleClientIdSet);
+            markSecretState('setGoogleClientSecret', 'stateGoogleClientSecret', !!s.googleClientSecretSet);
+            markSecretState('setResendApiKey', 'stateResendApiKey', !!s.resendApiKeySet);
+            markSecretState('setOvhAppKey', 'stateOvhAppKey', !!s.ovhAppKeySet);
+            markSecretState('setOvhAppSecret', 'stateOvhAppSecret', !!s.ovhAppSecretSet);
+            markSecretState('setOvhConsumerKey', 'stateOvhConsumerKey', !!s.ovhConsumerKeySet);
+            markSecretState('setProxmoxApiToken', 'stateProxmoxApiToken', !!s.proxmoxApiTokenSet);
+            markSecretState('setVapidPublicKey', 'stateVapidPublicKey', !!s.vapidPublicKeySet);
+            markSecretState('setVapidPrivateKey', 'stateVapidPrivateKey', !!s.vapidPrivateKeySet);
             if (s.telegramChatId) document.getElementById('webhookTgChatId').value = s.telegramChatId;
             if (s.webhookUrl) document.getElementById('webhookCustomUrl').value = s.webhookUrl;
             if (s.events) {
@@ -947,6 +1077,19 @@ ADMIN_HTML = r'''<!DOCTYPE html>
         telegramBotToken: document.getElementById('webhookTgToken').value.trim(),
         telegramChatId: document.getElementById('webhookTgChatId').value.trim(),
         webhookUrl: document.getElementById('webhookCustomUrl').value.trim(),
+        stripeSecretKey: document.getElementById('setStripeSecretKey').value.trim(),
+        stripeWebhookSecret: document.getElementById('setStripeWebhookSecret').value.trim(),
+        googleClientId: document.getElementById('setGoogleClientId').value.trim(),
+        googleClientSecret: document.getElementById('setGoogleClientSecret').value.trim(),
+        resendApiKey: document.getElementById('setResendApiKey').value.trim(),
+        emailFrom: document.getElementById('setEmailFrom').value.trim(),
+        affiliateRate: document.getElementById('setAffiliateRate').value.trim(),
+        ovhAppKey: document.getElementById('setOvhAppKey').value.trim(),
+        ovhAppSecret: document.getElementById('setOvhAppSecret').value.trim(),
+        ovhConsumerKey: document.getElementById('setOvhConsumerKey').value.trim(),
+        proxmoxApiToken: document.getElementById('setProxmoxApiToken').value.trim(),
+        vapidPublicKey: document.getElementById('setVapidPublicKey').value.trim(),
+        vapidPrivateKey: document.getElementById('setVapidPrivateKey').value.trim(),
         events: {
           order: document.getElementById('evtOrderPaid').checked,
           support: document.getElementById('evtSupportChat').checked,
@@ -963,6 +1106,7 @@ ADMIN_HTML = r'''<!DOCTYPE html>
         .then(res => res.json())
         .then(data => {
           showToast(data.message || '系统消息推送设置已保存至 Cloudflare KV', 'success');
+          loadAdminWebhookSettings();
         })
         .catch(e => showToast(`保存失败: ${e.message}`, 'error'));
     });
