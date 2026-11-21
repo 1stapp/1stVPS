@@ -4,7 +4,7 @@ import { createCheckoutSession, verifyStripeSignature } from './services/stripe'
 import { runProvisionPipeline } from './services/provisioner';
 import { ProxmoxClient } from './services/proxmox';
 import { OvhClient } from './services/ovh';
-import { sendInternalMessage, sendTransactionalEmail } from './services/notify';
+import { sendInternalMessage, sendTransactionalEmail, sendAdminNotification } from './services/notify';
 
 export { SupportChatRoom } from './durable/SupportChatRoom';
 
@@ -132,8 +132,24 @@ app.get('/api/auth/google/callback', async (c) => {
   return c.redirect(`${c.env.APP_URL || '/'}`);
 });
 
-// --- 2. 系统拓扑与 OVHcloud 裸金属资源池 ---
+// --- 2. 客户前台：全球可用区与机房节点延迟 ---
+app.get('/api/regions', async (c) => {
+  return c.json({
+    regions: [
+      { id: 'SGP', code: 'SGP', name: '亚太 - 新加坡', location: '新加坡 Jurong 高速机房', ping: '38ms', status: 'operational', flag: '🇸🇬', bgp: 'CN2 / CMI 高速回国 BGP' },
+      { id: 'FRA', code: 'FRA', name: '欧洲 - 德国法兰克福', location: '德国法兰克福互联枢纽', ping: '145ms', status: 'operational', flag: '🇩🇪', bgp: 'DE-CIX 骨干极速互联' },
+      { id: 'PAR', code: 'PAR', name: '欧洲 - 法国巴黎', location: '法国巴黎高防核心节点', ping: '152ms', status: 'operational', flag: '🇫🇷', bgp: '欧洲核心骨干网 / 原生防D' },
+      { id: 'BHS', code: 'BHS', name: '北美 - 加拿大蒙特利尔', location: '加拿大 Beauharnois 核心机房', ping: '180ms', status: 'operational', flag: '🇨🇦', bgp: '北美多线 BGP 抗D 500Gbps' },
+    ],
+  });
+});
+
+// 管理员专用：裸金属母机与底层资源池拓扑 (严格鉴权，客户无权访问)
 app.get('/api/nodes/overview', async (c) => {
+  const user = await getCurrentUser(c);
+  if (user.role !== 'admin') {
+    return c.json({ error: 'Forbidden: Admin access required' }, 403);
+  }
   try {
     const nodes = await c.env.DB.prepare(`SELECT * FROM nodes`).all();
     const ipStats = await c.env.DB.prepare(
@@ -334,6 +350,13 @@ app.post('/api/billing/checkout', async (c) => {
       .run();
   } catch {}
 
+  // 触发站长系统通知 Webhook
+  await sendAdminNotification(c.env, {
+    eventType: 'order',
+    title: '💰 新订单创建/待支付',
+    content: `订单号: ${orderId}\n用户: ${user.name} (${user.email})\n套餐: ${plan.name}\n机房: ${datacenter}\n系统: ${osTemplate}\n主机名: ${hostname}\n金额: $${(plan.price_cents / 100).toFixed(2)} USD`,
+  });
+
   if (c.env.STRIPE_SECRET_KEY) {
     const session = await createCheckoutSession(c.env, {
       orderId,
@@ -401,6 +424,13 @@ app.post('/api/webhooks/stripe', async (c) => {
       osTemplate: meta.osTemplate || 'ubuntu-24.04',
       hostname: meta.hostname || `vps-${meta.orderId.slice(-4)}`,
     });
+
+    // 触发站长系统通知 Webhook (Stripe 真实到账)
+    await sendAdminNotification(c.env, {
+      eventType: 'order',
+      title: '🎉 订单支付成功 (Stripe 到账)',
+      content: `订单号: ${meta.orderId}\n用户 ID: ${meta.userId}\n金额: $${((event.data.object.amount_total || 0) / 100).toFixed(2)} USD\n机房: ${meta.datacenter}\n套餐: ${meta.planId}`,
+    });
   }
   return c.json({ received: true });
 });
@@ -448,6 +478,13 @@ app.post('/api/affiliate/withdraw', async (c) => {
   if (!amountCents || amountCents <= 0) {
     return c.json({ error: '无效提现金额' }, 400);
   }
+
+  // 触发站长系统通知 Webhook: 合伙人佣金提现申请
+  await sendAdminNotification(c.env, {
+    eventType: 'affiliate',
+    title: '💵 合伙人佣金提现申请',
+    content: `申请人: ${user.name} (${user.email})\n推广码: ${user.affiliate_code}\n提现金额: $${(amountCents / 100).toFixed(2)} USD\n提现方式: ${method === 'credit' ? '兑换云主机账户余额 (+10% 奖励)' : '申请现金打款 (USDT/PayPal)'}`,
+  });
 
   if (method === 'credit') {
     // 提现为账户余额并赠送 10%
@@ -578,6 +615,20 @@ app.get('/api/support/ws/:roomId', async (c) => {
   return c.text('Durable Objects not available', 501);
 });
 
+app.post('/api/support/message', async (c) => {
+  const user = await getCurrentUser(c);
+  const { text, roomId } = await c.req.json<{ text: string; roomId?: string }>();
+
+  // 触发站长系统通知 Webhook: 客户发起在线咨询
+  await sendAdminNotification(c.env, {
+    eventType: 'support',
+    title: '💬 客户发起在线咨询',
+    content: `来自客户: ${user.name} (${user.email})\n房间: ${roomId || '技术客服室'}\n咨询内容: ${text || '（发起对话）'}`,
+  });
+
+  return c.json({ ok: true });
+});
+
 // --- 10. OVH 裸金属母机重装管理与管理员专项接口 ---
 app.post('/api/admin/ovh/install-proxmox', async (c) => {
   const { serviceName, hostname } = await c.req.json<{ serviceName: string; hostname?: string }>();
@@ -668,6 +719,84 @@ app.post('/api/admin/ip-pool/import', async (c) => {
     }
   } catch {}
   return c.json({ ok: true, imported: ips.length });
+});
+
+// 管理员专用：获取系统消息 Webhook 与 Telegram 推送配置
+app.get('/api/admin/settings', async (c) => {
+  const user = await getCurrentUser(c);
+  if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+
+  let settings = {
+    telegramBotToken: c.env.ADMIN_TELEGRAM_BOT_TOKEN || '',
+    telegramChatId: c.env.ADMIN_TELEGRAM_CHAT_ID || '',
+    webhookUrl: c.env.ADMIN_WEBHOOK_URL || '',
+    events: {
+      order: true,
+      support: true,
+      affiliate: true,
+      system: true,
+    },
+  };
+
+  if (c.env.SESSION_KV) {
+    try {
+      const raw = await c.env.SESSION_KV.get('admin:settings');
+      if (raw) {
+        settings = { ...settings, ...JSON.parse(raw) };
+      }
+    } catch {}
+  }
+
+  return c.json({ settings });
+});
+
+// 管理员专用：保存系统消息 Webhook 与 Telegram 推送配置
+app.post('/api/admin/settings', async (c) => {
+  const user = await getCurrentUser(c);
+  if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+
+  const body = await c.req.json<{
+    telegramBotToken?: string;
+    telegramChatId?: string;
+    webhookUrl?: string;
+    events?: { order?: boolean; support?: boolean; affiliate?: boolean; system?: boolean };
+  }>();
+
+  let currentSettings: any = {};
+  if (c.env.SESSION_KV) {
+    try {
+      const raw = await c.env.SESSION_KV.get('admin:settings');
+      if (raw) currentSettings = JSON.parse(raw);
+    } catch {}
+  }
+
+  const updatedSettings = {
+    ...currentSettings,
+    telegramBotToken: body.telegramBotToken !== undefined ? body.telegramBotToken : (currentSettings.telegramBotToken || ''),
+    telegramChatId: body.telegramChatId !== undefined ? body.telegramChatId : (currentSettings.telegramChatId || ''),
+    webhookUrl: body.webhookUrl !== undefined ? body.webhookUrl : (currentSettings.webhookUrl || ''),
+    events: body.events ? { ...(currentSettings.events || { order: true, support: true, affiliate: true, system: true }), ...body.events } : (currentSettings.events || { order: true, support: true, affiliate: true, system: true }),
+  };
+
+  if (c.env.SESSION_KV) {
+    await c.env.SESSION_KV.put('admin:settings', JSON.stringify(updatedSettings));
+  }
+
+  return c.json({ ok: true, message: '站长系统消息推送设置已成功保存', settings: updatedSettings });
+});
+
+// 管理员专用：一键测试发送 Webhook 消息
+app.post('/api/admin/webhook/test', async (c) => {
+  const user = await getCurrentUser(c);
+  if (user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+
+  const result = await sendAdminNotification(c.env, {
+    eventType: 'system',
+    title: '🔔 1stVPS Webhook 连通性测试',
+    content: `这是一条来自 1stVPS 站长后台的实时推送测试。\n管理员: ${user.name} (${user.email})\n如果您在 Telegram 或 Webhook 群机器人中收到此消息，说明系统消息推送链路完全正常！`,
+  });
+
+  return c.json({ ok: true, message: '测试消息已派发', result });
 });
 
 // --- 静态资产回退 (Cloudflare Workers Static Assets) ---

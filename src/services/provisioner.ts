@@ -1,6 +1,6 @@
 import { Env, QueueJob } from '../types';
 import { ProxmoxClient } from './proxmox';
-import { dispatchWebPush, sendInternalMessage, sendTransactionalEmail } from './notify';
+import { dispatchWebPush, sendInternalMessage, sendTransactionalEmail, sendAdminNotification } from './notify';
 
 export async function runProvisionPipeline(env: Env, job: Extract<QueueJob, { type: 'provision_vps' }>) {
   const plan = await env.DB.prepare(`SELECT * FROM vps_plans WHERE id = ?`)
@@ -85,4 +85,11 @@ export async function runProvisionPipeline(env: Env, job: Extract<QueueJob, { ty
       `<h2>欢迎使用 1stVPS</h2><p>主机名：<b>${job.hostname}</b></p><p>公网 IPv4：<b>${ipRow.ip}</b></p><p>系统模板：${job.osTemplate}</p>`
     );
   }
+
+  // 6. 即时向站长发送 Webhook / Telegram 交付通知
+  await sendAdminNotification(env, {
+    eventType: 'order',
+    title: '新实例全自动开通成功',
+    content: `订单: ${job.orderId}\n客户: ${user?.email || job.userId}\n主机: ${job.hostname}\nIPv4: ${ipRow.ip}\n机房节点: ${job.datacenter}`,
+  });
 }

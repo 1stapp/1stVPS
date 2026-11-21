@@ -21,6 +21,11 @@ export interface Env {
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
   RESEND_API_KEY?: string;
+
+  // 站长系统消息 Webhook 与 Telegram 推送凭证
+  ADMIN_WEBHOOK_URL?: string;
+  ADMIN_TELEGRAM_BOT_TOKEN?: string;
+  ADMIN_TELEGRAM_CHAT_ID?: string;
 }
 
 export type QueueJob =
