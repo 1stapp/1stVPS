@@ -5,23 +5,6 @@ Write-Host "==========================================================" -Foregro
 Write-Host "       1stVPS Platform — Cloudflare 自动化部署流水线       " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 自动检测本地常见代理端口并配置 (针对国内网络访问 Cloudflare API)
-$detectedProxy = $null
-$candidatePorts = @(7890, 7897, 10808, 10809, 2080, 8080)
-foreach ($port in $candidatePorts) {
-    $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($conn) {
-        $detectedProxy = "http://127.0.0.1:$port"
-        break
-    }
-}
-
-if ($detectedProxy -and -not $env:HTTP_PROXY) {
-    Write-Host "[网络提示] 检测到本地代理运行于 $detectedProxy，自动为当前终端启用代理加速..." -ForegroundColor Green
-    $env:HTTP_PROXY = $detectedProxy
-    $env:HTTPS_PROXY = $detectedProxy
-}
-
 # 1. 检查 Wrangler 登录状态与清理过期 Token
 Write-Host "`n[Step 1/5] 校验 Cloudflare 账号凭据..." -ForegroundColor Yellow
 
